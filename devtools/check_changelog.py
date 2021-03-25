@@ -14,9 +14,8 @@ with open(changelog, 'r') as fin:
     for line in fin:
         if line.startswith('v'):
             raise ValueError(
-                'Please add a summary of your additions to docs/CHANGELOG.rst. '
-                'As described in: https://python-project-skeleton.readthedocs.io'
-                '/en/latest/contributing.html#update-changelog.'
+                'Please add a summary of your additions to docs/CHANGELOG.rst '
+                'as described in docs/CONTRIBUTING.rst.'
                 )
         elif line.startswith('*'):
             break

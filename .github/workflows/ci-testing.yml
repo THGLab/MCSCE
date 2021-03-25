@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.7, 3.8, 3.9]
 
     steps:
     - uses: actions/checkout@v2
@@ -37,10 +37,10 @@ jobs:
       #env:
       #  PLATFORM: ${{ matrix.platform }}
 
-    # from https://github.com/codecov/codecov-action
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
-      with:
-        files: ./coverage.xml
-        fail_ci_if_error: true
-        verbose: true
+    ## from https://github.com/codecov/codecov-action
+    #- name: Upload coverage to Codecov
+    #  uses: codecov/codecov-action@v1
+    #  with:
+    #    files: ./coverage.xml
+    #    fail_ci_if_error: true
+    #    verbose: true
