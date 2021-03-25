@@ -1,7 +1,9 @@
-Authors
-=======
+Main developers
+===============
 
-* Joao M. C. Teixeira (`webpage`_, `github`_)
+* `Teresa Head-Gordon Lab<https://github.com/THGLab>`_
+* `Jerry Li<https://github.com/JerryJohnsonLee>`_
+* `Joao M. C. Teixeira<https://github.com/joaomcteixeira>`_
 
-.. _webpage: https://bit.ly/joaomcteixeira
-.. _github: https://github.com/joaomcteixeira
+Contributors
+============
