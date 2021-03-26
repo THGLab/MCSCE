@@ -69,7 +69,8 @@ Update the changelog file under :code:`docs/CHANGELOG.rst` with an explanatory
 bullet list of your contribution. Add that list right after the main title and
 before the last version subtitle::
 
-    Changelog =========
+    Changelog
+    =========
 
     * here goes my new additions explain them shortly and well
 
