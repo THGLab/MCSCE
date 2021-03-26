@@ -1,10 +1,6 @@
 MCSCE - Sidechain packing library
 =================================
 
-.. image:: https://img.shields.io/badge/version-v0.0.0-orange
-    :target:https://github.com/THGLab/MCSCE
-    :alt: Version
-
 .. image:: https://github.com/THGLab/MCSCE/workflows/Tests/badge.svg?branch=master
     :target: https://github.com/THGLab/MCSCE/actions?workflow=Tests
     :alt: Test Status
@@ -17,24 +13,14 @@ MCSCE - Sidechain packing library
     :target: https://codecov.io/gh/THGLab/MCSCE
     :alt: Codecov
 
-.. image:: https://img.shields.io/codacy/grade/ae042ac066554bfab398024b0beea6a5/master?label=Codacy
-    :target: https://app.codacy.com/manual/THGLab/MCSCE/dashboard
-    :alt: Codacy
-
-.. image:: https://api.codeclimate.com/v1/badges/d96cc9a1841a819cd4f5/maintainability
-   :target: https://codeclimate.com/github/THGLab/MCSCE/maintainability
-   :alt: Maintainability
-
-.. image:: https://img.shields.io/codeclimate/tech-debt/THGLab/MCSCE
-    :target: https://codeclimate.com/github/THGLab/MCSCE
-    :alt: Code Climate technical debt
-
 .. image:: https://img.shields.io/readthedocs/MCSCE/latest?label=Read%20the%20Docs
     :target: https://MCSCE.readthedocs.io/en/latest/index.html
     :alt: Read the Docs
 
 Monte Carlo Side Chain Entropy package for generating side chain packing for
 fixed protein backbone.
+
+v0.0.0
 
 References
 ==========
