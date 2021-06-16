@@ -1,4 +1,5 @@
-"""Contain  handlers of PDB information."""
+"""Contain  handlers of PDB information.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
 import functools
 import re
 from collections import defaultdict

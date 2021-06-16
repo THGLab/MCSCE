@@ -1,3 +1,6 @@
+"""Several helper functions for calculating pairwise quantities.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+
 import numpy as np
 from numba import njit
 

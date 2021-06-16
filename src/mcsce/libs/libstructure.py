@@ -4,7 +4,9 @@ Store internal protein structure representation.
 Classes
 -------
 Structure
-    The main API that represents a protein structure in IDPConfGen.
+    The main API that represents a protein structure in MCSCE.
+
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
 """
 import traceback
 import warnings

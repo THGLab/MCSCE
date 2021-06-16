@@ -1,4 +1,5 @@
-"""IDP Conf Gen Exceptions."""
+"""Exception classes defined for the MCSCE package.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
 from mcsce import contactus as CONTACTUS
 from mcsce import log
 from mcsce.core import count_string_formatters

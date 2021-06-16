@@ -1,4 +1,5 @@
-"""Tools for conformer building operations."""
+"""Tools for conformer building operations.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
 import itertools as it
 import re
 from collections import Counter, defaultdict, namedtuple

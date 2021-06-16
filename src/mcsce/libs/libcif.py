@@ -1,4 +1,5 @@
-"""Handle CIF data."""
+"""Handle CIF data.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
 import re
 
 from mcsce.core import exceptions as EXCPTS

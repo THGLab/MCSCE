@@ -1,4 +1,5 @@
-"""Definitions for the building process."""
+"""Definitions for the building process.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from copy import copy

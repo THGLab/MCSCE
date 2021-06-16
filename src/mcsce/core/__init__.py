@@ -1,4 +1,5 @@
-"""Core modules serve lib-wide."""
+"""Core modules serve lib-wide.
+Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
 import string
 
 

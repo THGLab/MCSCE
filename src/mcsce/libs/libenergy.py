@@ -1,3 +1,4 @@
+"""Code for preparing and calculating various energy terms"""
 from mcsce import log
 import numpy as np
 from numba import njit
@@ -21,7 +22,7 @@ def prepare_energy_function(
         gb_term=True,
         hpmf_term=True
         ):
-    """."""
+    """Adapted from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
     # this mask identifies covalently bonded pairs and pairs two bonds apart
     bonds_le_2_mask = create_bonds_apart_mask_for_ij_pairs(
         atom_labels,
@@ -159,6 +160,10 @@ def create_bonds_apart_mask_for_ij_pairs(
     -------
     `gen_ij_pairs_upper_diagonal`
     `gen_atom_pair_connectivity_masks`
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     atom_labels_ij_gen = gen_ij_pairs_upper_diagonal(atom_labels)
     residue_numbers_ij_gen = gen_ij_pairs_upper_diagonal(residue_numbers)
@@ -187,7 +192,8 @@ def create_LJ_params_raw(
         residue_labels,
         force_field,
         ):
-    """Create ACOEFF and BCOEFF parameters."""
+    """Create ACOEFF and BCOEFF parameters.
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
     sigmas_ii = extract_ff_params_for_seq(
         atom_labels,
         residue_numbers,
@@ -234,7 +240,7 @@ def create_Coulomb_params_raw(
         residue_labels,
         force_field,
         ):
-    """."""
+    """Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
     charges_i = extract_ff_params_for_seq(
         atom_labels,
         residue_numbers,
@@ -260,6 +266,8 @@ def are_connected(n1, n2, rn1, a1, a2, bonds_intra, bonds_inter):
     Detect if a certain atom pair is bonded accordind to criteria.
 
     Considers only to the self residue and next residue
+
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     # requires
     assert isinstance(n1, int) and isinstance(n2, int), (type(n1), type(n2))
@@ -305,6 +313,10 @@ def extract_ff_params_for_seq(
 
     param : str
         The param to extract from forcefield dictionary.
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     params_l = []
     params_append = params_l.append
@@ -366,6 +378,10 @@ def gen_ij_pairs_upper_diagonal(data):
     ------
     tuple of length 2
         IJ pairs in the form of N*(N-1) / 2.
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     for i in range(len(data) - 1):
         for j in range(i + 1, len(data)):
@@ -400,6 +416,10 @@ def gen_atom_pair_connectivity_masks(
     Depends
     -------
     `are_connected`
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     zipit = zip(res_names_ij, res_num_ij, atom_names_ij)
     counter = 0
@@ -447,6 +467,10 @@ def init_lennard_jones_calculator(acoeff, bcoeff):
         expects an np.ndarray of distances with same shape as `acoeff`
         and `bcoeff`: (N,).
         `func` returns an integer.
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     @njit
     def calc_lennard_jones(distances_ij, NANSUM=np.nansum):
@@ -476,6 +500,10 @@ def init_coulomb_calculator(charges_ij):
         np.ndarray of distances with same shape as `acoeff` and `bcoeff`:
         (N,).
         `func` returns an integer.
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
     @njit
     def calculate(distances_ij, NANSUM=np.nansum):
@@ -531,6 +559,10 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords):
         A function that accepts coords in the form of (N, 3). The
         coordinates sent to the resulting function MUST be aligned with
         the labels used to prepare the `efuncs` closures.
+
+    Credit
+    -------
+    Adapted from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira, but added support for energy calculators that takes raw coordinates as input
     """
     def calculate(coords):
         dist_ij = distf(coords)
