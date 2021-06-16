@@ -9,6 +9,7 @@ from mcsce.core.build_definitions import (
     )
 from mcsce.libs.libcalc import *
 from mcsce.libs.libhpmf import *
+from mcsce.libs.libgb import *
 
 def prepare_energy_function(
         atom_labels,
@@ -17,6 +18,7 @@ def prepare_energy_function(
         forcefield,
         lj_term=True,
         coulomb_term=True,
+        gb_term=True,
         hpmf_term=True
         ):
     """."""
@@ -64,7 +66,7 @@ def prepare_energy_function(
         energy_func_terms_rij.append(lf_calc)
         log.info('prepared lj')
 
-    if coulomb_term:
+    if coulomb_term or gb_term:
 
         charges_ij = create_Coulomb_params_raw(
             atom_labels,
@@ -73,12 +75,20 @@ def prepare_energy_function(
             forcefield.forcefield,
             )
 
-        charges_ij[bonds_exact_3_mask] *= float(forcefield.forcefield['coulomb14scale'])  # noqa: E501
-        charges_ij[bonds_le_2_mask] = np.nan
+    if coulomb_term:
+        charges_ij_coulomb = charges_ij.copy()
+        charges_ij_coulomb[bonds_exact_3_mask] *= float(forcefield.forcefield['coulomb14scale'])  # noqa: E501
+        charges_ij_coulomb[bonds_le_2_mask] = np.nan
 
-        coulomb_calc = init_coulomb_calculator(charges_ij)
+        coulomb_calc = init_coulomb_calculator(charges_ij_coulomb)
         energy_func_terms_rij.append(coulomb_calc)
         log.info('prepared Coulomb')
+
+    if gb_term:
+        atom_type_filters = create_atom_type_filters(atom_labels)
+        gb_calc = init_gb_calculator(atom_type_filters, charges_ij)
+        energy_func_terms_rij.append(gb_calc)
+        log.info('prepared GB implicit solvent')
 
     if hpmf_term:
         N = len(atom_labels)
