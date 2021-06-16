@@ -1,12 +1,17 @@
-"""Core modules serve lib-wide.
-Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+"""
+Core modules serve lib-wide.
+
+Borrowed from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by
+Joao M. C. Teixeira (@joaomcteixeira).
+"""
 import string
 
 
 def has_string_formatters(s):
     """
     Determine if a string has ``{}`` operators.
-    
+
     Parameters
     ----------
     s : str

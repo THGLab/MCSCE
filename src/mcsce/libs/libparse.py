@@ -4,7 +4,11 @@ Parsing routines for different data structure.
 All functions in this module receive a certain Python native datastructure,
 parse the information inside and return/yield the parsed information.
 
-Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
 """
 import subprocess
 from itertools import product

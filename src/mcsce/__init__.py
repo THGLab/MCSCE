@@ -1,7 +1,14 @@
 """
 Monte Carlo Side Chain Entropy
 
-Generating side chain ensembles from given backbone structure by extending side chains in a Monte Carlo fashion
+Generating side chain ensembles from given backbone structure by
+extending side chains in a Monte Carlo fashion.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
 """
 import logging
 from os import fspath, get_terminal_size
