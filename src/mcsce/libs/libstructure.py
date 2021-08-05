@@ -7,6 +7,8 @@ Structure
     The main API that represents a protein structure in MCSCE.
 
 Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
+
+Extended with functions to handle side chain manipulations, written by Jie Li
 """
 import traceback
 import warnings
@@ -14,8 +16,9 @@ from collections import defaultdict
 from functools import reduce
 
 import numpy as np
+from copy import deepcopy
 from mcsce import log
-from mcsce.core.definitions import aa3to1, blocked_ids, pdb_ligand_codes
+from mcsce.core.definitions import backbone_atoms, aa3to1, blocked_ids, pdb_ligand_codes
 from mcsce.core.definitions import residue_elements as _allowed_elements
 from mcsce.core.exceptions import (
     EmptyFilterError,
@@ -27,6 +30,7 @@ from mcsce.libs import libpdb
 from mcsce.libs.libcif import CIFParser, is_cif
 from mcsce.libs.libparse import group_runs, sample_case, type2string
 from mcsce.libs.libpdb import RE_ENDMDL, RE_MODEL, delete_insertions
+from mcsce.libs.libcalc import place_sidechain_template
 # from idpconfgen.logger import S
 
 
@@ -180,6 +184,15 @@ class Structure:
             }
 
     @property
+    def residue_types(self):
+        c, rs, rn = col_chainID, col_resSeq, col_resName
+
+        chains = defaultdict(dict)
+        for row in self.filtered_atoms:
+            chains[row[c]].setdefault(row[rs], row[rn])
+        return list(list(chains.values())[0].values())
+
+    @property
     def filtered_residues(self):
         """Filter residues according to :attr:`filters`."""
         FA = self.filtered_atoms
@@ -193,6 +206,28 @@ class Structure:
         Without filtering, without chain separation.
         """
         return [int(i) for i in dict.fromkeys(self.data_array[:, col_resSeq])]
+
+    @property
+    def atom_labels(self):
+        return self.data_array[:, col_name]
+
+    @property
+    def res_nums(self):
+        return self.data_array[:, col_resSeq].astype(int)
+
+    @property
+    def res_labels(self):
+        return self.data_array[:, col_resName]
+
+    @residues.setter
+    def residues(self, residue_idx):
+        """
+        Set the residue id of the current structure to a given value.
+
+        Supposed to be applied only to a structure containing only one residue (i.e. sidechain template), 
+        but does not perform this explicit check.
+        """
+        self.data_array[:, col_resSeq] = str(residue_idx)
 
     def pop_last_filter(self):
         """Pop last filter."""
@@ -218,6 +253,12 @@ class Structure:
         self.filters.append(
             lambda x: ib(x[col_name], x[col_element], minimal=minimal)
             )
+
+    def add_filter_resnum(self, resnum):
+        """Add filters for residue number"""
+        if type(resnum) is not str:
+            resnum = str(resnum)
+        self.filters.append(lambda x: x[col_resSeq] == resnum)
 
     def get_PDB(self, pdb_filters=None, renumber=True):
         """
@@ -285,6 +326,27 @@ class Structure:
         minimal_backbone[2::3] = C_coords
 
         return minimal_backbone
+
+    def remove_side_chains(self):
+        """
+        Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm
+        """
+        copied_structure = deepcopy(self)
+        retained_atoms_filter = [atom in backbone_atoms for atom in copied_structure.data_array[:, col_name]]
+        copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
+        return copied_structure
+
+    def add_side_chain(self, res_idx, sidechain_template):
+        template_structure, sc_atoms = sidechain_template
+        self.add_filter_resnum(res_idx)
+        N_CA_C_coords = self.get_sorted_minimal_backbone_coords(filtered=True)
+        sc_all_atom_coords = place_sidechain_template(N_CA_C_coords, template_structure.coords)
+        template_structure.coords = sc_all_atom_coords
+        template_structure.residues = res_idx
+        self.pop_last_filter()
+        self._data_array = np.concatenate([self.data_array, template_structure.data_array[sc_atoms]])
+
+
 
     def get_coords_in_conf_label_order(self, conf_label=None):
         if self._conf_label_order is not None:

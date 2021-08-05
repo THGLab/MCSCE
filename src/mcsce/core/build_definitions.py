@@ -12,7 +12,7 @@ import numpy as np
 from scipy import spatial
 
 from mcsce.libs.libstructure import Structure, col_name
-from mcsce.core.definitions import aa1to3, aa3to1
+from mcsce.core.definitions import backbone_atoms, aa1to3, aa3to1
 
 
 pdist = spatial.distance.pdist
@@ -22,8 +22,8 @@ _sidechain_template_files = sorted(list(
 amber_pdbs = sorted(list(
     _filepath.joinpath('sidechain_templates', 'amber_names').glob('*.pdb')))
 _amber14sb = _filepath.joinpath('data', 'protein.ff14SB.xml')
+# _amber14sb = _filepath.joinpath('..','..','..','..','individual_term_ff','full.xml')
 
-backbone_atoms = ('N', 'C', 'CA', 'O', 'OXT', 'H', 'H1', 'H2', 'H3')
 
 # amino-acids atom labels
 # from: http://www.bmrb.wisc.edu/ref_info/atom_nom.tbl
@@ -132,6 +132,22 @@ def read_ff14SB_params():
                     ff14SB_params[key].update(atom.attrib)
                     ff14SB_params[key].pop('type')
 
+        elif child.tag == 'HarmonicAngleForce':
+            for angle in child:
+                key = (angle.attrib['type1'], angle.attrib['type2'], angle.attrib['type3'])
+                value = {k: angle.attrib[k] for k in angle.attrib if 'type' not in k}
+
+                assert key not in ff14SB_params
+                ff14SB_params[key] = value
+
+        elif child.tag == 'PeriodicTorsionForce':
+            for torsion in child:
+                key = (torsion.attrib['type1'], torsion.attrib['type2'], torsion.attrib['type3'], torsion.attrib['type4'])
+                value = {k: torsion.attrib[k] for k in torsion.attrib if 'type' not in k}
+                value["tag"] = torsion.tag
+
+                assert key not in ff14SB_params
+                ff14SB_params[key] = value
     return ff14SB_params
 
 
@@ -723,17 +739,16 @@ build_bend_H_N_C = np.radians(114) / 2
 def _get_structure_coords(path_):
     s = Structure(path_)
     s.build()
-    coords = s.coords.astype(np.float64)
-    sidechains = np.where(
+    sidechain_atom_idx = np.where(
         np.logical_not(np.isin(s.data_array[:, col_name], backbone_atoms))
         )[0]
 
-    return coords, sidechains
+    return s, sidechain_atom_idx
 
 
 sidechain_templates = {
     pdb.stem.upper(): _get_structure_coords(pdb)
-    for pdb in _sidechain_template_files
+    for pdb in amber_pdbs
     }
 
 # these template coordinates were created using Chimera-X daily given

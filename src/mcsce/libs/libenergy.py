@@ -1,14 +1,18 @@
 """Code for preparing and calculating various energy terms"""
+from numpy.lib.function_base import angle
 from mcsce import log
 import numpy as np
 from numba import njit
 
+from mcsce.core.definitions import vdW_radii_tsai_1999
 from mcsce.core.build_definitions import (
     bonds_equal_3_inter,
     bonds_le_2_inter,
     bonds_equal_1_inter
     )
+from mcsce.libs.libparse import extract_ff_params_for_seq
 from mcsce.libs.libcalc import *
+from mcsce.libs.libbonded import *
 from mcsce.libs.libhpmf import *
 from mcsce.libs.libgb import *
 
@@ -17,12 +21,26 @@ def prepare_energy_function(
         residue_numbers,
         residue_labels,
         forcefield,
+        terms=None,
+        angle_term=True,
+        dihedral_term=True,
+        clash_term=True,
         lj_term=True,
         coulomb_term=True,
         gb_term=True,
         hpmf_term=True
         ):
     """Adapted from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+    # Decide calculation terms from provided terms list
+    if terms is not None:
+        angle_term = "angle" in terms
+        dihedral_term = "dihedral" in terms
+        clash_term = "clash" in terms
+        lj_term = "lj" in terms
+        coulomb_term = "coulomb" in terms
+        gb_term = "gb" in terms
+        hpmf_term = "hpmf" in terms
+
     # this mask identifies covalently bonded pairs and pairs two bonds apart
     bonds_le_2_mask = create_bonds_apart_mask_for_ij_pairs(
         atom_labels,
@@ -42,10 +60,65 @@ def prepare_energy_function(
         bonds_equal_3_inter,
         )
 
+    bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
+        atom_labels,
+        residue_numbers,
+        residue_labels,
+        forcefield.res_topology,
+        bonds_equal_1_inter,
+        base_bool=False,
+        )
+
+    bonds_2_mask = (bonds_le_2_mask.astype(int) - bonds_1_mask.astype(int)).astype(bool)
+
+    N = len(atom_labels)
+    # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
+
+    connectivity_matrix = np.zeros((N, N))
+    connectivity_matrix[np.triu_indices(N, k=1)] = bonds_1_mask  # TODO: change to bonds_1_mask
+    # The lower triangle can be mirrored from the upper triangle
+    connectivity_matrix += connectivity_matrix.T
     # /
     # assemble energy function
     energy_func_terms_rij = [] # terms that are calculated from the pairwise distances of atoms
     energy_func_terms_coords = [] # terms that have to be calculated from the original coordinates
+
+    if angle_term:
+        angle_head_atom_matrix = np.zeros((N, N))
+        angle_head_atom_matrix[np.triu_indices(N, k=1)] = bonds_2_mask
+    else:
+        angle_head_atom_matrix = None
+
+    if dihedral_term:
+        dihedral_head_atom_matrix = np.zeros((N, N))
+        dihedral_head_atom_matrix[np.triu_indices(N, k=1)] = bonds_exact_3_mask
+    else:
+        dihedral_head_atom_matrix = None
+
+    if angle_term or dihedral_term:
+        angles, dihedrals, improper_dihedrals = prepare_angles_and_dihedrals(angle_head_atom_matrix,
+                                                         dihedral_head_atom_matrix,
+                                                         connectivity_matrix,
+                                                         atom_labels,
+                                                         residue_numbers,
+                                                         residue_labels,
+                                                         forcefield.forcefield)
+    if angle_term:
+        ang_calc = init_angle_calculator(angles)
+        energy_func_terms_coords.append(ang_calc)
+        log.info('prepared angle')
+
+    if dihedral_term:
+        dih_calc = init_dihedral_calculator(dihedrals, improper_dihedrals)
+        energy_func_terms_coords.append(dih_calc)
+        log.info('prepared dihedral')
+
+    if clash_term:
+        vdw_radii_sum = calc_vdw_radii_sum(atom_labels)
+        vdw_radii_sum *= 0.5 # The clash check parameter as defined in the SI of the MCSCE paper
+        vdw_radii_sum[bonds_1_mask] = 0
+    else:
+        vdw_radii_sum = None
 
     if lj_term:
 
@@ -58,8 +131,10 @@ def prepare_energy_function(
 
         # 0.2 as 0.4
         _lj14scale = float(forcefield.forcefield['lj14scale'])
-        acoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
-        bcoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
+        # acoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
+        # bcoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
+        acoeff[bonds_exact_3_mask] *= _lj14scale
+        bcoeff[bonds_exact_3_mask] *= _lj14scale
         acoeff[bonds_le_2_mask] = np.nan
         bcoeff[bonds_le_2_mask] = np.nan
 
@@ -92,21 +167,9 @@ def prepare_energy_function(
         log.info('prepared GB implicit solvent')
 
     if hpmf_term:
-        N = len(atom_labels)
-        # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
-        bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
-            atom_labels,
-            residue_numbers,
-            residue_labels,
-            forcefield.res_topology,
-            bonds_equal_1_inter,
-            base_bool=False,
-        )
-        connectivity_matrix = np.zeros((N, N))
-        connectivity_matrix[np.triu_indices(N, k=1)] = bonds_1_mask  # TODO: change to bonds_1_mask
-        # The lower triangle can be mirrored from the upper triangle
-        connectivity_matrix += connectivity_matrix.T
+        
         atom_filter, sasa_atom_types = convert_atom_types(atom_labels, residue_numbers, residue_labels)
+        # filter the connectivity matrix to only keep atoms that have SASA atom type definitions
         connectivity_matrix = connectivity_matrix[atom_filter, atom_filter]
         hpmf_calc = init_hpmf_calculator(sasa_atom_types, atom_filter, connectivity_matrix)
         energy_func_terms_coords.append(hpmf_calc)
@@ -117,7 +180,9 @@ def prepare_energy_function(
     calc_energy = energycalculator_ij(
         calc_all_vs_all_dists,
         energy_func_terms_rij,
-        energy_func_terms_coords
+        energy_func_terms_coords,
+        check_clash=clash_term,
+        vdw_radii_sum=vdw_radii_sum
         )
     log.info('done preparing energy func')
     return calc_energy
@@ -231,6 +296,8 @@ def create_LJ_params_raw(
 
     acoeff = 4 * epsilons_ij * (sigmas_ij ** 12)
     bcoeff = 4 * epsilons_ij * (sigmas_ij ** 6)
+    # acoeff = epsilons_ij * (sigmas_ij ** 12)
+    # bcoeff = 2 * epsilons_ij * (sigmas_ij ** 6)
 
     return acoeff, bcoeff
 
@@ -252,10 +319,21 @@ def create_Coulomb_params_raw(
     num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
     charges_ij = np.empty(num_ij_pairs, dtype=np.float64)
     multiply_upper_diagonal_raw(charges_i, charges_ij)
-    charges_ij *= 0.25  # dielectic constant
+    # charges_ij *= 0.25  # dielectic constant
+    charges_ij *= 1389.35 # Coulomb's constant in unit of kJ.Angstrom/mol/e^2
 
     return charges_ij
 
+def calc_vdw_radii_sum(atom_labels):
+    """
+    Calculate the van der Waals radii sum for atom pairs as for checking whether there are structure clashes
+    """
+    atom_types = [a[0] for a in atom_labels]
+    vdw_radii = [vdW_radii_tsai_1999[a] for a in atom_types]
+    num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
+    vdw_radii_sum_ij = np.empty(num_ij_pairs, dtype=np.float64)
+    sum_upper_diagonal_raw(vdw_radii, vdw_radii_sum_ij)
+    return vdw_radii_sum_ij
 
 ############################
 ## Other helper functions
@@ -290,83 +368,7 @@ def are_connected(n1, n2, rn1, a1, a2, bonds_intra, bonds_inter):
     assert isinstance(answer, bool)
     return answer
 
-def extract_ff_params_for_seq(
-        atom_labels,
-        residue_numbers,
-        residue_labels,
-        force_field,
-        param,
-        ):
-    """
-    Extract a parameter from forcefield dictionary for a given sequence.
 
-    See Also
-    --------
-    create_conformer_labels
-
-    Parameters
-    ----------
-    atom_labels, residue_numbers, residue_labels
-        As returned by `:func:create_conformer_labels`.
-
-    forcefield : dict
-
-    param : str
-        The param to extract from forcefield dictionary.
-
-    Credit
-    -------
-    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
-    """
-    params_l = []
-    params_append = params_l.append
-
-    zipit = zip(atom_labels, residue_numbers, residue_labels)
-    for atom_name, res_num, res_label in zipit:
-
-        # adds C to the terminal residues
-        if res_num == residue_numbers[-1]:
-            res = 'C' + res_label
-            was_in_C_terminal = True
-            assert res.isupper() and len(res) == 4, res
-
-        elif res_num == residue_numbers[0]:
-            res = 'N' + res_label
-            was_in_N_terminal = True
-            assert res.isupper() and len(res) == 4, res
-
-        else:
-            res = res_label
-
-        # TODO:
-        # define protonation state in parameters
-        if res_label.endswith('HIS'):
-            res_label = res_label[:-3] + 'HIP'
-
-        try:
-            # force field atom type
-            charge = force_field[res][atom_name]['charge']
-            atype = force_field[res][atom_name]['type']
-
-        # TODO:
-        # try/catch is here to avoid problems with His...
-        # for this purpose we are only using side-chains
-        except KeyError:
-            raise KeyError(tuple(force_field[res].keys()))
-
-        if param in ["class", "element", "mass", "epsilon", "sigma"]:
-            # These are parameters for non-specific atom types
-            params_append(float(force_field[atype][param]))
-        elif param == "charge":
-            params_append(float(charge))
-
-    assert was_in_C_terminal, \
-        'The C terminal residue was never computed. It should have.'
-    assert was_in_N_terminal, \
-        'The N terminal residue was never computed. It should have.'
-
-    assert isinstance(params_l, list)
-    return params_l
 
 def gen_ij_pairs_upper_diagonal(data):
     """
@@ -460,6 +462,8 @@ def init_lennard_jones_calculator(acoeff, bcoeff):
         that resulting energy is np.nan for non-relevant ij-pairs, for
         example, covalently bonded pairs, or pairs 2 bonds apart.
 
+
+
     Returns
     -------
     numba.njitted func
@@ -510,7 +514,7 @@ def init_coulomb_calculator(charges_ij):
         return NANSUM(charges_ij / distances_ij)
     return calculate
 
-def energycalculator_ij(distf, efuncs_rij, efuncs_coords):
+def energycalculator_ij(distf, efuncs_rij, efuncs_coords, check_clash=False, vdw_radii_sum=None):
     """
     Calculate the sum of energy terms.
 
@@ -553,6 +557,11 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords):
         A list containing the energy terms functions. Energy term
         functions are prepared closures that takes coordinates as input.
 
+    check_clash : boolean
+        When set to True, the calculator will first check whether the distance
+        between any two atoms are smaller than the threshold (clash defined by
+        0.8 * sum(VDW radii)). If clash exists, the energy will be infinity
+
     Returns
     -------
     func
@@ -567,6 +576,9 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords):
     def calculate(coords):
         dist_ij = distf(coords)
         energy = 0
+        if check_clash:
+            if (dist_ij < vdw_radii_sum).any():
+                return np.inf
         for func in efuncs_rij:
             energy += func(dist_ij)
         for func in efuncs_coords:

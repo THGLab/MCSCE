@@ -377,6 +377,88 @@ def translate_seq_to_3l(input_seq, histidine_protonation="HIS"):
         ]
 
 
+def extract_ff_params_for_seq(
+        atom_labels,
+        residue_numbers,
+        residue_labels,
+        force_field,
+        param,
+        ):
+    """
+    Extract a parameter from forcefield dictionary for a given sequence.
+
+    See Also
+    --------
+    create_conformer_labels
+
+    Parameters
+    ----------
+    atom_labels, residue_numbers, residue_labels
+        As returned by `:func:create_conformer_labels`.
+
+    forcefield : dict
+
+    param : str
+        The param to extract from forcefield dictionary.
+
+    Credit
+    -------
+    Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
+    """
+    params_l = []
+    params_append = params_l.append
+
+    zipit = zip(atom_labels, residue_numbers, residue_labels)
+    for atom_name, res_num, res_label in zipit:
+
+        # # adds C to the terminal residues
+        # if res_num == max(residue_numbers):
+        #     res = 'C' + res_label
+        #     was_in_C_terminal = True
+        #     assert res.isupper() and len(res) == 4, res
+
+        # elif res_num == min(residue_numbers):
+        #     res = 'N' + res_label
+        #     was_in_N_terminal = True
+        #     assert res.isupper() and len(res) == 4, res
+
+        # else:
+        #     res = res_label
+        res = res_label # debug
+
+        # TODO:
+        # define protonation state in parameters
+        if res_label.endswith('HIS'):
+            res_label = res_label[:-3] + 'HIP'
+
+        try:
+            # force field atom type
+            charge = force_field[res][atom_name]['charge']
+            atype = force_field[res][atom_name]['type']
+
+        # TODO:
+        # try/catch is here to avoid problems with His...
+        # for this purpose we are only using side-chains
+        except KeyError:
+            raise KeyError(tuple(force_field[res].keys()))
+
+        if param in ["class", "element", "mass", "epsilon", "sigma"]:
+            # These are parameters for non-specific atom types
+            params_append(float(force_field[atype][param]))
+        elif param == "charge":
+            params_append(float(charge))
+        elif param == "atom_type":
+            params_append(atype)
+
+    # assert was_in_C_terminal, \
+    #     'The C terminal residue was never computed. It should have.'
+    # assert was_in_N_terminal, \
+    #     'The N terminal residue was never computed. It should have.'
+
+    assert isinstance(params_l, list)
+    return params_l
+
+
 get_trimer_seq_njit = njit(get_trimer_seq)
 get_seq_chunk_njit = njit(get_seq_chunk)
 get_seq_next_residue_njit = njit(get_seq_next_residue)
