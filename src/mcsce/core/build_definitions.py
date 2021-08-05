@@ -1,5 +1,12 @@
-"""Definitions for the building process.
-Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+"""
+Definitions for the building process.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
+"""
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from copy import copy

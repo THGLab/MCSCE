@@ -1,5 +1,12 @@
-"""Code for preparing and calculating various energy terms"""
-from numpy.lib.function_base import angle
+"""
+Code for preparing and calculating various energy terms.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
+"""
 from mcsce import log
 import numpy as np
 from numba import njit

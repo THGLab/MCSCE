@@ -1,5 +1,12 @@
-"""Static definitions that serve the whole program infrastructure.
-Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+"""
+Static definitions that serve the whole program infrastructure.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
+"""
 from argparse import Namespace
 from collections import namedtuple
 from itertools import chain
