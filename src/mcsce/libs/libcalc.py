@@ -12,32 +12,34 @@ from numba import njit
 @njit
 def calc_all_vs_all_dists(coords):
     """
-    Calculate the upper half of all vs. all distances.
+    Calculate the upper half of all vs. all distances for a batch.
 
     Reproduces the operations of scipy.spatial.distance.pdist.
 
     Parameters
     ----------
-    coords : np.ndarray, shape (N, 3), dtype=np.float64
+    coords : np.ndarray, shape (B, N, 3), dtype=np.float64, B: batch size
 
     Returns
     -------
-    np.ndarray, shape ((N * N - N) // 2,), dytpe=np.float64
+    np.ndarray, shape (B, (N * N - N) // 2,), dytpe=np.float64
     """
-    len_ = coords.shape[0]
-    shape = ((len_ * len_ - len_) // 2,)
+    batch_size = coords.shape[0]
+    len_ = coords.shape[1]
+    shape = (batch_size, (len_ * len_ - len_) // 2,)
     results = np.empty(shape, dtype=np.float64)
 
-    c = 1
-    i = 0
-    for a in coords:
-        for b in coords[c:]:
-            x = b[0] - a[0]
-            y = b[1] - a[1]
-            z = b[2] - a[2]
-            results[i] = (x * x + y * y + z * z) ** 0.5
-            i += 1
-        c += 1
+    for bi in range(batch_size):
+        c = 1
+        i = 0
+        for a in coords[bi]:
+            for b in coords[bi,c:]:
+                x = b[0] - a[0]
+                y = b[1] - a[1]
+                z = b[2] - a[2]
+                results[bi, i] = (x * x + y * y + z * z) ** 0.5
+                i += 1
+            c += 1
 
     return results
 
@@ -246,6 +248,58 @@ def calc_torsion_angles(
 
     # torsion angles
     return -ARCTAN2(sin_theta, cos_theta)
+
+@njit
+def norm_along_last_axis(array):
+    # calculate norm along the last axis and keep the dimension
+    original_shape = array.shape
+    flattened_to_last_axis = np.reshape(array, (-1, original_shape[-1]))
+    result = np.empty((flattened_to_last_axis.shape[0], 1))
+    for i in range(flattened_to_last_axis.shape[0]):
+        result[i] = np.sum(flattened_to_last_axis[i] ** 2) ** (1/2)
+    return result.reshape(original_shape[: -1] + (1, ))
+
+@njit
+def dot_along_last_axis(array1, array2):
+    # dot product along the last axis and keep the dimension
+    result = np.empty(len(array1))
+    for i in range(len(array1)):
+        result[i] = np.dot(array1[i], array2[i])
+    return result
+
+@njit
+def calc_proper_torsions(coords):  
+    """
+    A vectorized and jitted version for calculating a set of proper torsion angle values
+
+    Params
+    ----------
+    coords: np.array with shape Bx4x3
+        B is the batch size, 4 are the 4 atoms in each batch for defining the dihedral angle, 
+        and 3 are x,y,z coordinates
+
+    Returns
+    ----------
+    result: np.array with shape B
+        The proper torsion angles for each batch element, in units of radian
+    """
+    # coords: Bx4x3
+    q_vecs = coords[:, 1:, :] - coords[:, :-1, :]  # Bx3x3
+    cross = np.cross(q_vecs[:, :-1, :], q_vecs[:, 1:, :])
+    unitary = cross / norm_along_last_axis(cross)  # Bx2x3
+    
+    u0 = unitary[:, 0, :]
+    u1 = unitary[:, 1, :]
+    u3 = q_vecs[:, 1, :] / norm_along_last_axis(q_vecs[:, 1, :] * 1)  # strange bug: have to multiply by 1, otherwise numba does not compile
+    u2 = np.cross(u3, u1)
+    
+    cos_theta = dot_along_last_axis(u0, u1)
+    sin_theta = dot_along_last_axis(u0, u2)
+    result = -np.arctan2(sin_theta, cos_theta)
+    return result
+
+def calc_improper_torsion_angles():
+    pass
 
 @njit
 def hamiltonian_multiplication_Q(a1, b1, c1, d1, a2, b2, c2, d2):

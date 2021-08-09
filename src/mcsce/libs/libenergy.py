@@ -7,8 +7,9 @@ developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
 MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
 Modifications herein are of MCSCE authors.
 """
-from mcsce import log
+# from mcsce import log
 import numpy as np
+import math
 from numba import njit
 
 from mcsce.core.definitions import vdW_radii_tsai_1999
@@ -113,17 +114,18 @@ def prepare_energy_function(
     if angle_term:
         ang_calc = init_angle_calculator(angles)
         energy_func_terms_coords.append(ang_calc)
-        log.info('prepared angle')
+        # log.info('prepared angle')
 
     if dihedral_term:
         dih_calc = init_dihedral_calculator(dihedrals, improper_dihedrals)
         energy_func_terms_coords.append(dih_calc)
-        log.info('prepared dihedral')
+        # log.info('prepared dihedral')
 
     if clash_term:
         vdw_radii_sum = calc_vdw_radii_sum(atom_labels)
-        vdw_radii_sum *= 0.5 # The clash check parameter as defined in the SI of the MCSCE paper
+        vdw_radii_sum *= 0.6 # The clash check parameter as defined in the SI of the MCSCE paper
         vdw_radii_sum[bonds_1_mask] = 0
+        vdw_radii_sum = vdw_radii_sum[None]
     else:
         vdw_radii_sum = None
 
@@ -138,16 +140,16 @@ def prepare_energy_function(
 
         # 0.2 as 0.4
         _lj14scale = float(forcefield.forcefield['lj14scale'])
-        # acoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
-        # bcoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
-        acoeff[bonds_exact_3_mask] *= _lj14scale
-        bcoeff[bonds_exact_3_mask] *= _lj14scale
+        acoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
+        bcoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
+        # acoeff[bonds_exact_3_mask] *= _lj14scale
+        # bcoeff[bonds_exact_3_mask] *= _lj14scale
         acoeff[bonds_le_2_mask] = np.nan
         bcoeff[bonds_le_2_mask] = np.nan
 
-        lf_calc = init_lennard_jones_calculator(acoeff, bcoeff)
+        lf_calc = init_lennard_jones_calculator(acoeff[None], bcoeff[None])
         energy_func_terms_rij.append(lf_calc)
-        log.info('prepared lj')
+        # log.info('prepared lj')
 
     if coulomb_term or gb_term:
 
@@ -163,15 +165,15 @@ def prepare_energy_function(
         charges_ij_coulomb[bonds_exact_3_mask] *= float(forcefield.forcefield['coulomb14scale'])  # noqa: E501
         charges_ij_coulomb[bonds_le_2_mask] = np.nan
 
-        coulomb_calc = init_coulomb_calculator(charges_ij_coulomb)
+        coulomb_calc = init_coulomb_calculator(charges_ij_coulomb[None])
         energy_func_terms_rij.append(coulomb_calc)
-        log.info('prepared Coulomb')
+        # log.info('prepared Coulomb')
 
     if gb_term:
         atom_type_filters = create_atom_type_filters(atom_labels)
         gb_calc = init_gb_calculator(atom_type_filters, charges_ij)
         energy_func_terms_rij.append(gb_calc)
-        log.info('prepared GB implicit solvent')
+        # log.info('prepared GB implicit solvent')
 
     if hpmf_term:
         
@@ -180,7 +182,7 @@ def prepare_energy_function(
         connectivity_matrix = connectivity_matrix[atom_filter, atom_filter]
         hpmf_calc = init_hpmf_calculator(sasa_atom_types, atom_filter, connectivity_matrix)
         energy_func_terms_coords.append(hpmf_calc)
-        log.info('prepared HPMF term')
+        # log.info('prepared HPMF term')
 
 
     # in case there are iji terms, I need to add here another layer
@@ -191,7 +193,7 @@ def prepare_energy_function(
         check_clash=clash_term,
         vdw_radii_sum=vdw_radii_sum
         )
-    log.info('done preparing energy func')
+    # log.info('done preparing energy func')
     return calc_energy
 
 ########################
@@ -488,7 +490,10 @@ def init_lennard_jones_calculator(acoeff, bcoeff):
         ar = acoeff / (distances_ij ** 12)
         br = bcoeff / (distances_ij ** 6)
         energy_ij = ar - br
-        return NANSUM(energy_ij)
+        result = np.empty(distances_ij.shape[0])
+        for i in range(distances_ij.shape[0]):
+            result[i] = NANSUM(energy_ij[i])
+        return result
     return calc_lennard_jones
 
 def init_coulomb_calculator(charges_ij):
@@ -518,10 +523,14 @@ def init_coulomb_calculator(charges_ij):
     """
     @njit
     def calculate(distances_ij, NANSUM=np.nansum):
-        return NANSUM(charges_ij / distances_ij)
+        energy_ij = charges_ij / distances_ij
+        result = np.empty(distances_ij.shape[0])
+        for i in range(distances_ij.shape[0]):
+            result[i] = NANSUM(energy_ij[i])
+        return result
     return calculate
 
-def energycalculator_ij(distf, efuncs_rij, efuncs_coords, check_clash=False, vdw_radii_sum=None):
+def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=128, check_clash=False, vdw_radii_sum=None):
     """
     Calculate the sum of energy terms.
 
@@ -581,16 +590,29 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords, check_clash=False, vdw
     Adapted from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira, but added support for energy calculators that takes raw coordinates as input
     """
     def calculate(coords):
+        if len(coords.shape) == 2:
+            coords = coords[None] # make sure the first axis is the batch axis
         dist_ij = distf(coords)
-        energy = 0
+        energies = np.empty(len(coords))
         if check_clash:
-            if (dist_ij < vdw_radii_sum).any():
-                return np.inf
-        for func in efuncs_rij:
-            energy += func(dist_ij)
-        for func in efuncs_coords:
-            energy += func(coords)
-        return energy
+            clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
+            energies[clash_filter] = np.inf
+            dist_ij_noclash = dist_ij[~clash_filter]
+            coords_noclash = coords[~clash_filter]
+        else:
+            clash_filter = np.zeros(len(coords)).astype(bool)
+            dist_ij_noclash = dist_ij
+            coords_noclash = coords
+        energies_noclash = np.zeros(len(dist_ij_noclash))
+        for i in range(math.ceil(len(energies_noclash) / batch_size)):
+            batch_idx_start = i * batch_size
+            batch_idx_end = (i + 1) * batch_size
+            for func in efuncs_rij:
+                energies_noclash[batch_idx_start: batch_idx_end] += func(dist_ij_noclash[batch_idx_start: batch_idx_end])
+            for func in efuncs_coords:
+                energies_noclash[batch_idx_start: batch_idx_end] += func(coords_noclash[batch_idx_start: batch_idx_end])
+        energies[~clash_filter] = energies_noclash
+        return energies
     return calculate
 
 
