@@ -226,19 +226,35 @@ def init_dihedral_calculator(dihedrals, improper_dihedrals):
     ks = []
     periodicities = []
     phases = []
+    dihedral_atom_indices_improper = []
+    ks_improper = []
+    periodicities_improper = []
+    phases_improper = []
     for item in dihedrals:
         for term in dihedrals[item]:
-            dihedral_atom_indices.append(item)
-            ks.append(term['k1'])
-            periodicities.append(term['periodicity1'])
-            phases.append(term['phase1'])
+            for kn in ['1', '2', '3', '4']:
+                if 'k'+kn in term and float(term['k'+kn]) != 0:
+                    dihedral_atom_indices.append(item)
+                    ks.append(term['k'+kn])
+                    periodicities.append(term['periodicity'+kn])
+                    phases.append(term['phase'+kn])
+    for item in improper_dihedrals:
+        dihedral_atom_indices_improper.append(item)
+        ks_improper.append(improper_dihedrals[item]['k1'])
+        periodicities_improper.append(improper_dihedrals[item]['periodicity1'])
+        phases_improper.append(improper_dihedrals[item]['phase1'])
     ks = np.array(ks, dtype=float)
     periodicities = np.array(periodicities, dtype=float)
     phases = np.array(phases, dtype=float)
+    ks_improper = np.array(ks_improper, dtype=float)
+    periodicities_improper = np.array(periodicities_improper, dtype=float)
+    phases_improper = np.array(phases_improper, dtype=float)
 
     def calc(coords):
         dihedrals = np.concatenate([calc_torsion_angles(coords[list(idx)]) for idx in dihedral_atom_indices])
+        improper_dihedrals = np.concatenate([calc_improper_torsion_angles(coords[list(idx)]) for idx in dihedral_atom_indices])
         energies = ks * (1 + np.cos(periodicities * dihedrals - phases))
-        return np.sum(energies)
+        energies_improper = ks_improper * (1 + np.cos(periodicities_improper * improper_dihedrals - phases_improper))
+        return np.sum(energies) + np.sum(energies_improper)
 
     return calc
