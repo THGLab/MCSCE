@@ -39,7 +39,7 @@ else:
     input_folder = args.input_structure
     if not input_folder.endswith("/"):
         input_folder += "/"
-    all_pdbs = [input_folder + f for f in os.listdir(input_folder)]
+    all_pdbs = [input_folder + f for f in os.listdir(input_folder) if f[-3:].upper() == "PDB"]
 
 for f in all_pdbs:
     print("Now working on", f)
