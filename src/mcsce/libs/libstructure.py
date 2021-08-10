@@ -19,7 +19,7 @@ from functools import reduce
 
 import numpy as np
 from copy import deepcopy
-from mcsce import log
+# from mcsce import log
 from mcsce.core.definitions import backbone_atoms, aa3to1, blocked_ids, pdb_ligand_codes
 from mcsce.core.definitions import residue_elements as _allowed_elements
 from mcsce.core.exceptions import (

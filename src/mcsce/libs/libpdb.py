@@ -11,7 +11,7 @@ import functools
 import re
 from collections import defaultdict
 
-from mcsce import Path, log
+# from mcsce import Path, log
 from mcsce.core import exceptions as EXCPTS
 from mcsce.core.definitions import aa3to1
 # from mcsce.logger import S
@@ -396,7 +396,7 @@ class PDBList:
         with open(filename, 'w') as fh:
             fh.write('\n'.join(str(pdbid) for pdbid in self.to_tuple()))
 
-        log.info(S(f'PDBIDs written to {filename}'))
+        # log.info(S(f'PDBIDs written to {filename}'))
 
 
 # USED OKAY

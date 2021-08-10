@@ -29,7 +29,7 @@ _sidechain_template_files = sorted(list(
 amber_pdbs = sorted(list(
     _filepath.joinpath('sidechain_templates', 'amber_names').glob('*.pdb')))
 _amber14sb = _filepath.joinpath('data', 'protein.ff14SB.xml')
-# _amber14sb = _filepath.joinpath('..','..','..','..','individual_term_ff','full.xml')
+# _amber14sb = _filepath.joinpath('..','..','..','..','individual_term_ff','lj.xml')
 
 
 # amino-acids atom labels

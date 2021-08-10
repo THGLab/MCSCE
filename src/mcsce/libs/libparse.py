@@ -17,7 +17,7 @@ from pathlib import Path as Path_
 
 from numba import njit
 
-from mcsce import Path, log
+from mcsce import Path
 from mcsce.core.definitions import aa1to3, dssp_trans_bytes, jsonparameters, aa1set, aa3set
 from mcsce.core.exceptions import DSSPParserError
 from mcsce.libs.libpdb import PDBIDFactory, atom_resSeq
@@ -415,20 +415,20 @@ def extract_ff_params_for_seq(
     zipit = zip(atom_labels, residue_numbers, residue_labels)
     for atom_name, res_num, res_label in zipit:
 
-        # # adds C to the terminal residues
-        # if res_num == max(residue_numbers):
-        #     res = 'C' + res_label
-        #     was_in_C_terminal = True
-        #     assert res.isupper() and len(res) == 4, res
+        # adds C to the terminal residues
+        if res_num == max(residue_numbers):
+            res = 'C' + res_label
+            was_in_C_terminal = True
+            assert res.isupper() and len(res) == 4, res
 
-        # elif res_num == min(residue_numbers):
-        #     res = 'N' + res_label
-        #     was_in_N_terminal = True
-        #     assert res.isupper() and len(res) == 4, res
+        elif res_num == min(residue_numbers):
+            res = 'N' + res_label
+            was_in_N_terminal = True
+            assert res.isupper() and len(res) == 4, res
 
-        # else:
-        #     res = res_label
-        res = res_label # debug
+        else:
+            res = res_label
+        # res = res_label # debug
 
         # TODO:
         # define protonation state in parameters
@@ -454,10 +454,10 @@ def extract_ff_params_for_seq(
         elif param == "atom_type":
             params_append(atype)
 
-    # assert was_in_C_terminal, \
-    #     'The C terminal residue was never computed. It should have.'
-    # assert was_in_N_terminal, \
-    #     'The N terminal residue was never computed. It should have.'
+    assert was_in_C_terminal, \
+        'The C terminal residue was never computed. It should have.'
+    assert was_in_N_terminal, \
+        'The N terminal residue was never computed. It should have.'
 
     assert isinstance(params_l, list)
     return params_l
