@@ -15,7 +15,7 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("input_structure", help="A single PDB file for the backbone conformation, or a folder in which all PDB files will be processed")
 parser.add_argument("n_conf", type=int, help="Number of side-chain conformations to generate (regardless of whether or not succeeded) for each given input backbone structure")
-parser.add_argument("-w", "--n_worker", default=None, help="Number of parallel workers for executing side chain building. When not specified, use all CPUs installed in the machine")
+parser.add_argument("-w", "--n_worker", type=int, default=None, help="Number of parallel workers for executing side chain building. When not specified, use all CPUs installed in the machine")
 parser.add_argument("-o", "--output_dir", default=None, help="The output position of generated PDB files. When not specified, it will be the name of the input file+'_mcsce'")
 parser.add_argument("-l", "--log", default="log.csv", help="The log file save position")
 args = parser.parse_args()
