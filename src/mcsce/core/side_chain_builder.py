@@ -44,7 +44,7 @@ class efunc_calculator_proxy:
     def __call__(self, coord_input):
         return self.efunc(coord_input)
 
-def create_side_chain_structure(structure, sidechain_placeholders, energy_calculators, beta, exec_idx):
+def create_side_chain_structure(structure, sidechain_placeholders, energy_calculators, beta, save_addr):
     """
     A function that takes a backbone-only structure and generates a conformation using the Monte Carlo approach
 
@@ -82,10 +82,7 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         template = sidechain_templates[resname]
         sidechain_atom_idx = template[1]
         n_sidechain_atoms = len(sidechain_atom_idx)
-        try:
-            new_coords = structure.coords
-        except:
-            print(structure._data_array)
+        new_coords = structure.coords
         new_coords[:-n_sidechain_atoms] = previous_coords
         structure.coords = new_coords
         coords = structure.coords
@@ -127,10 +124,10 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         
         structure.coords = all_coords[selected_idx]
     # all side chains have been created, then return the final structure
-    # log.info("Finished without issues!")
+    structure.write_PDB(save_addr)
     return structure, True
 
-def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temperature, parallel_worker=16):
+def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temperature, save_path, parallel_worker=16):
     """
     Create a given number of conformation ensemble for the backbone-only structure of a protein
 
@@ -148,6 +145,9 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
 
     temperature: float
         The temperature value used for Boltzmann weighting
+
+    save_path: str
+        The folder path for saving all succeessfully generated PDB files
 
     Returns
     ----------
@@ -195,7 +195,7 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
         #                     sidechain_placeholder_list, energy_calculator_list, beta]] * n_conformations)
         result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_conformations, 
                             [sidechain_placeholder_list] * n_conformations, [energy_calculator_list] * n_conformations,
-                            [beta] * n_conformations, range(n_conformations))
+                            [beta] * n_conformations, [save_path + f"/{n}.pdb" for n in range(n_conformations)])
         conformations = []
         success_indicator = []
         all_success_count = 0

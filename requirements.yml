@@ -1,4 +1,4 @@
-name: mcsceenv
+name: mcsce
 channels:
     - conda-forge
     - defaults
@@ -9,3 +9,6 @@ dependencies:
     - scipy=1
     - pip
     - tox=3
+    - tensorflow=1.14
+    - keras=2.3
+    - tqdm
