@@ -180,9 +180,9 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
     conformations = []
     all_success_count = 0
     if parallel_worker == 1:
-        for _ in tqdm(range(n_conformations)):
+        for idx in tqdm(range(n_conformations)):
             conf, succeeded = create_side_chain_structure(deepcopy(copied_backbone_structure), 
-                            sidechain_placeholder_list, energy_calculator_list, beta)
+                            sidechain_placeholder_list, energy_calculator_list, beta, save_path + f"/{idx}.pdb")
             conformations.append(conf)
             all_success_count += int(succeeded)
     else:
