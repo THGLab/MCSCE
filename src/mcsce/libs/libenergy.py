@@ -598,6 +598,7 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=128, check_
             clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
             energies[clash_filter] = np.inf
             dist_ij_noclash = dist_ij[~clash_filter]
+            del dist_ij   # release memory to prevent OOM during parallel execution
             coords_noclash = coords[~clash_filter]
         else:
             clash_filter = np.zeros(len(coords)).astype(bool)

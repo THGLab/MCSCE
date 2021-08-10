@@ -47,9 +47,9 @@ for f in all_pdbs:
     if args.output_dir is None:
         output_dir = os.path.splitext(os.path.basename(f))[0] + "_mcsce"
     else:
-        output_dir = args.output_dir
+        output_dir = args.output_dir + "/" + os.path.splitext(os.path.basename(f))[0] + "_mcsce"
     if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir)
     s = Structure(f)
     s.build()
     s = s.remove_side_chains()

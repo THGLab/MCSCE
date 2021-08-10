@@ -176,7 +176,7 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
             energy_calculator_list.append(energy_func)
         else:
             energy_calculator_list.append(None)
-    print("Finished preparing all energy functions. Now start conformation generation")
+    print("Finished preparing all energy functions. Now start conformer generation")
     conformations = []
     all_success_count = 0
     if parallel_worker == 1:
