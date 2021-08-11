@@ -111,7 +111,7 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
             # energy = energy_func(coords)
             # energies.append(energy)
         energies = energy_func(all_coords)
-        energies_raw = energies  # This is the raw energy values
+        energies_raw = deepcopy(energies)  # This is the raw energy values
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             # log.info("Unresolvable clashes!")
