@@ -61,4 +61,4 @@ for f in all_pdbs:
     with open(args.log, "a") as logfile:
         logfile.write("%s,%d,%s\n" % (f, sum(success_indicator), str(datetime.now() - t0)))
 
-    print("All finished!")
+print("All finished!")

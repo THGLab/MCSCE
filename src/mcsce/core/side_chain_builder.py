@@ -69,6 +69,9 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
 
     succeeded: bool
         Whether the side chain growth completed successfully
+
+    energy:
+        The energy for the generated conformation
     """
     
     N_CA_C_coords = structure.get_sorted_minimal_backbone_coords()
@@ -108,13 +111,14 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
             # energy = energy_func(coords)
             # energies.append(energy)
         energies = energy_func(all_coords)
+        energies_raw = energies  # This is the raw energy values
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             # log.info("Unresolvable clashes!")
             # np.save(f"{exec_idx}_{idx}.npy", all_coords)
             # np.save(f"{exec_idx}_tor.npy", candidiate_conformations)
             # structure.write_PDB(f"{exec_idx}.pdb")
-            return structure, False
+            return structure, False, None, None
         # renormalize energies to avoid numerical issues
         energies -= min(energies)
         adjusted_weights = candidate_probs * np.exp(-beta * energies)
@@ -123,9 +127,10 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         # coords[-n_sidechain_atoms:] = conformation_collection[selected_idx][sidechain_atom_idx]
         
         structure.coords = all_coords[selected_idx]
+        energy = energies_raw[selected_idx] # The raw energy to be returned
     # all side chains have been created, then return the final structure
     structure.write_PDB(save_addr)
-    return structure, True
+    return structure, True, energy, save_addr
 
 def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temperature, save_path, parallel_worker=16):
     """
@@ -198,9 +203,17 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
                             [beta] * n_conformations, [save_path + f"/{n}.pdb" for n in range(n_conformations)])
         conformations = []
         success_indicator = []
+        energies = {}
         all_success_count = 0
         for result in tqdm(result_iterator, total=n_conformations):
             conformations.append(result[0])
             success_indicator.append(result[1])
+            if result[1]:
+                # A succeeded case
+                energies[result[3]] = result[2]
+        with open(save_path + "/energies.csv", "w") as f:
+            f.write("File name,Energy(kJ/mol)\n")
+            for item in energies:
+                f.write("%s,%f\n" % (item, energies[item]))
     return conformations, success_indicator
 
