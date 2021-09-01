@@ -30,7 +30,7 @@ from mcsce.core.exceptions import (
     )
 from mcsce.libs import libpdb
 from mcsce.libs.libcif import CIFParser, is_cif
-from mcsce.libs.libparse import group_runs, sample_case, type2string
+from mcsce.libs.libparse import group_runs, sample_case, type2string, is_valid_fasta, translate_seq_to_3l
 from mcsce.libs.libpdb import RE_ENDMDL, RE_MODEL, delete_insertions
 from mcsce.libs.libcalc import place_sidechain_template
 # from idpconfgen.logger import S
@@ -75,9 +75,13 @@ class Structure:
         'kwargs',
         ]
 
-    def __init__(self, data, **kwargs):
-
-        datastr = get_datastr(data)
+    def __init__(self, data=None, fasta=None, **kwargs):
+        if data is not None:
+            datastr = get_datastr(data)
+        elif fasta is not None:
+            datastr = fasta
+        else:
+            raise RuntimeError("Please specify either the data source or the FASTA sequence of the structure!")
         self._structure_parser = detect_structure_type(datastr)
 
         self._datastr = datastr
@@ -295,11 +299,12 @@ class Structure:
 
         return lines
 
-    def get_sorted_minimal_backbone_coords(self, filtered=False):
+    def get_sorted_minimal_backbone_coords(self, filtered=False, with_O=False):
         """
         Generate a copy of the backbone coords sorted.
 
-        Sorting according N, CA, C.
+        When with_O is set to True, sorting according N, CA, C, O.
+        Otherwise sorting according to N, CA, C.
 
         This method was created because some PDBs may not have the
         backbone atoms sorted properly.
@@ -319,13 +324,28 @@ class Structure:
         N_num = N_coords.shape[0]
         CA_num = CA_coords.shape[0]
         C_num = C_coords.shape[0]
-        num_backbone_atoms = sum([N_num, CA_num, C_num])
-        assert num_backbone_atoms / 3 == N_num
 
-        minimal_backbone = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
-        minimal_backbone[0:-2:3] = N_coords
-        minimal_backbone[1:-1:3] = CA_coords
-        minimal_backbone[2::3] = C_coords
+        if with_O:
+            O_coords = coords[atoms[:, col_name] == 'O']
+            O_num = O_coords.shape[0]
+
+            num_backbone_atoms = sum([N_num, CA_num, C_num, O_num])
+            assert num_backbone_atoms / 4 == N_num
+
+            minimal_backbone = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
+            minimal_backbone[0:-3:4] = N_coords
+            minimal_backbone[1:-2:4] = CA_coords
+            minimal_backbone[2:-1:4] = C_coords
+            minimal_backbone[3::4] = O_coords
+
+        else:
+            num_backbone_atoms = sum([N_num, CA_num, C_num])
+            assert num_backbone_atoms / 3 == N_num
+
+            minimal_backbone = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
+            minimal_backbone[0:-2:3] = N_coords
+            minimal_backbone[1:-1:3] = CA_coords
+            minimal_backbone[2::3] = C_coords
 
         return minimal_backbone
 
@@ -424,6 +444,16 @@ def parse_pdb_to_array(datastr, which='both'):
     populate_structure_array_from_pdb(record_lines, data_array)
     return data_array
 
+
+def parse_fasta_to_array(datastr, **kwargs):
+    """
+    Establish backbone data array from the specified FASTA sequence
+    """
+    n_residues = len(datastr)
+    residues_aa3 = translate_seq_to_3l(datastr, histidine_protonation='HIP')
+    data_array = gen_empty_structure_data_array(4 * n_residues)
+    populate_structure_array_with_backbone(residues_aa3, data_array)
+    return data_array
 
 def parse_cif_to_array(datastr, **kwargs):
     """
@@ -591,6 +621,27 @@ def populate_structure_array_from_pdb(record_lines, data_array):
         for column, slicer_item in enumerate(AS):
             data_array[row, column] = line[slicer_item].strip()
 
+def populate_structure_array_with_backbone(residue_codes, data_array):
+    """
+    Populate structure array by specifying the backbone atoms with coordinates default to all zeros
+    """
+    for residx, rescode in enumerate(residue_codes):
+        resid = residx + 1  # resid shoud start from 1
+        for atomidx, atom in enumerate(["N", "CA", "C", "O"]):
+            row_num = 4 * residx + atomidx
+            data_array[row_num, col_record] = "ATOM"
+            data_array[row_num, col_serial] = str(atomidx + 1)
+            data_array[row_num, col_name] = atom
+            data_array[row_num, col_resName] = rescode
+            data_array[row_num, col_chainID] = "A"
+            data_array[row_num, col_resSeq] = str(resid)
+            data_array[row_num, col_x] = "0.000"
+            data_array[row_num, col_y] = "0.000"
+            data_array[row_num, col_z] = "0.000"
+            data_array[row_num, col_occ] = "1.00"
+            data_array[row_num, col_temp] = "0.00"
+            data_array[row_num, col_element] = atom[0]
+
 
 def filter_record_lines(lines, which='both'):
     """Filter lines to get record lines only."""
@@ -726,6 +777,7 @@ record_line_headings = {
 structure_parsers = [
     (is_cif, parse_cif_to_array),
     (libpdb.is_pdb, parse_pdb_to_array),
+    (is_valid_fasta, parse_fasta_to_array)
     ]
 
 

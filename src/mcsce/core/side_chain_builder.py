@@ -44,7 +44,7 @@ class efunc_calculator_proxy:
     def __call__(self, coord_input):
         return self.efunc(coord_input)
 
-def create_side_chain_structure(structure, sidechain_placeholders, energy_calculators, beta, save_addr):
+def create_side_chain_structure(structure, sidechain_placeholders, energy_calculators, beta, save_addr=None):
     """
     A function that takes a backbone-only structure and generates a conformation using the Monte Carlo approach
 
@@ -61,6 +61,9 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
 
     beta: float
         The beta value used for Boltzmann weighting
+
+    save_addr: str or None
+        The path for saving the generated structure. When None, the structure is not saved locally
 
     Returns
     ----------
@@ -129,8 +132,83 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         structure.coords = all_coords[selected_idx]
         energy = energies_raw[selected_idx] # The raw energy to be returned
     # all side chains have been created, then return the final structure
-    structure.write_PDB(save_addr)
+    if save_addr is not None:
+        structure.write_PDB(save_addr)
     return structure, True, energy, save_addr
+
+def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_worker=16):
+    """
+    Using the MCSCE workflow to add sidechains to a backbone-only PDB structure. The building process will be repeated for n_trial times, but only the lowest energy conformation will be returned 
+
+    Parameters
+    ----------
+    structure: Structure object
+        The structure with backbone atoms only
+
+    n_trials: int
+        The total number of trials for the generation procedure
+
+    efunc_creator: partial function
+        A partial function for creating energy functions for evaluating the generated conformations
+        It should accept atom_label, res_num and res_label as inputs
+
+    temperature: float
+        The temperature value used for Boltzmann weighting
+
+    parallel_worker: int
+        Number of workers for parallel execution
+
+    Returns
+    ----------
+    lowest_energy_conformation: Structure object
+        The generated lowest-energy conformation structure with sidechains, or None when every trial of the conformation generation failed
+    """
+    # convert temperature to beta
+    beta = 1 / (temperature * 0.008314462) # k unit: kJ/mol/K
+    copied_backbone_structure = deepcopy(structure)
+    sidechain_placeholder_list = []
+    energy_calculator_list = []
+    for idx, resname in tqdm(enumerate(structure.residue_types), total=len(structure.residue_types)):
+        template = sidechain_templates[resname]
+        structure.add_side_chain(idx + 1, deepcopy(template))
+        sidechain_placeholder_list.append(deepcopy(structure))
+        if resname not in ["GLY", "ALA"]:
+            energy_func = efunc_creator(structure.atom_labels, 
+                                        structure.res_nums,
+                                        structure.res_labels)
+            energy_calculator_list.append(energy_func)
+        else:
+            energy_calculator_list.append(None)
+    conformations = []
+    energies = []
+    if parallel_worker == 1:
+        for idx in tqdm(range(n_trials)):
+            conf, succeeded, energy, _ = create_side_chain_structure(deepcopy(copied_backbone_structure), 
+                            sidechain_placeholder_list, energy_calculator_list, beta, None)
+            if succeeded:
+                conformations.append(conf)
+                energies.append(energy)
+    else:
+        import pathos
+        pool = pathos.multiprocessing.ProcessPool(parallel_worker)
+
+        result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_trials, 
+                            [sidechain_placeholder_list] * n_trials, [energy_calculator_list] * n_trials,
+                            [beta] * n_trials, [None] * n_trials)
+        conformations = []
+        energies = []
+        for conf, succeeded, energy, _ in tqdm(result_iterator, total=n_trials):
+            if succeeded:
+                conformations.append(conf)
+                energies.append(energy)
+            
+        # define the lowest energy conformation and return
+        if len(energies) == 0:
+            return None
+        else:
+            lowest_energy_idx = np.argmin(energies)
+            return conformations[lowest_energy_idx]
+
 
 def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temperature, save_path, parallel_worker=16):
     """
