@@ -36,7 +36,7 @@ with zipfile.ZipFile(_path2simple, 'r') as dbzip:
 
 setup(
     name='mcsce',
-    version='0.0.0',
+    version='0.1.0',
     description=(
         'Monte Carlo Side Chain Entropy package for generating side '
         'chain packing for fixed protein backbone.'),
