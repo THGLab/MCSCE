@@ -2,10 +2,10 @@
 # -*- encoding: utf-8 -*-
 """Setup dot py."""
 from __future__ import absolute_import, print_function
-
+import zipfile
 from glob import glob
+from pathlib import Path
 from os.path import basename, dirname, join, splitext
-
 from setuptools import find_packages, setup
 
 
@@ -20,6 +20,19 @@ long_description = '{}\n{}'.format(
     read('README.rst'),
     read(join('docs', 'CHANGELOG.rst')),
     )
+
+
+_path2simple = Path(
+    Path(__file__).resolve().parent,
+    'src',
+    'mcsce',
+    'core',
+    'data',
+    'SimpleOpt1-5.zip')
+
+with zipfile.ZipFile(_path2simple, 'r') as dbzip:
+    dbzip.extractall(Path(_path2simple.parent, 'SimpleOpt1-5'))
+
 
 setup(
     name='mcsce',
