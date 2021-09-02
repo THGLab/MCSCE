@@ -1,9 +1,17 @@
-"""Contain  handlers of PDB information."""
+"""
+Contain  handlers of PDB information.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
+"""
 import functools
 import re
 from collections import defaultdict
 
-from mcsce import Path, log
+# from mcsce import Path, log
 from mcsce.core import exceptions as EXCPTS
 from mcsce.core.definitions import aa3to1
 # from mcsce.logger import S
@@ -388,7 +396,7 @@ class PDBList:
         with open(filename, 'w') as fh:
             fh.write('\n'.join(str(pdbid) for pdbid in self.to_tuple()))
 
-        log.info(S(f'PDBIDs written to {filename}'))
+        # log.info(S(f'PDBIDs written to {filename}'))
 
 
 # USED OKAY

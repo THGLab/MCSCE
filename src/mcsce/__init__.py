@@ -1,26 +1,33 @@
 """
 Monte Carlo Side Chain Entropy
 
-Generating side chain ensembles from given backbone structure by extending side chains in a Monte Carlo fashion
+Generating side chain ensembles from given backbone structure by
+extending side chains in a Monte Carlo fashion.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
 """
-import logging
+# import logging
 from os import fspath, get_terminal_size
 from pathlib import Path as _Path
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+# log = logging.getLogger(__name__)
+# log.setLevel(logging.DEBUG)
 
-try:
-    get_terminal_size()
-except OSError:
-    has_terminal = False
-    log.addHandler(logging.NullHandler())
-else:
-    _ch = logging.StreamHandler()
-    _ch.setLevel(logging.INFO)
-    _ch.setFormatter(logging.Formatter('[%(asctime)s]%(message)s'))
-    log.addHandler(_ch)
-    has_terminal = True
+# try:
+#     get_terminal_size()
+# except OSError:
+#     has_terminal = False
+#     log.addHandler(logging.NullHandler())
+# else:
+#     _ch = logging.StreamHandler()
+#     _ch.setLevel(logging.INFO)
+#     _ch.setFormatter(logging.Formatter('[%(asctime)s]%(message)s'))
+#     log.addHandler(_ch)
+#     has_terminal = True
 
 
 class Path(type(_Path())):
@@ -61,4 +68,4 @@ def assert_subclass(objs, subclass):
     return False
 
 
-__version__ = '0.0.1'
+__version__ = '0.1.0'

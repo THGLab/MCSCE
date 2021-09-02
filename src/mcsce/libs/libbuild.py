@@ -1,14 +1,18 @@
-"""Tools for conformer building operations."""
-import itertools as it
-import re
-from collections import Counter, defaultdict, namedtuple
-from functools import partial
-from itertools import cycle
+"""
+Tools for conformer building operations.
 
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
+"""
+
+
+from collections import Counter, namedtuple
 import numpy as np
-from numba import njit
 
-from mcsce.libs.libparse import get_mers, translate_seq_to_3l
+from mcsce.libs.libparse import translate_seq_to_3l
 
 ConfLabels = namedtuple(
     'ConfLabels',

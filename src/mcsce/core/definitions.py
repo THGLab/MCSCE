@@ -1,4 +1,12 @@
-"""Static definitions that serve the whole program infrastructure."""
+"""
+Static definitions that serve the whole program infrastructure.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
+"""
 from argparse import Namespace
 from collections import namedtuple
 from itertools import chain
@@ -6,7 +14,7 @@ from math import pi
 # does not import the Path from IDPConfgen to avoid circular imports
 from pathlib import Path
 
-
+backbone_atoms = ('N', 'C', 'CA', 'O', 'OXT', 'H', "HA", 'H1', 'H2', 'H3')
 core_folder = Path(__file__).parent
 faspr_dun2010bbdep_path = Path(
     core_folder,
@@ -159,22 +167,7 @@ dssp_trans_bytes = bytes.maketrans(
 # _discarded_residues = (
 # 'I', 'C', 'G', 'A', 'U', 'I', 'DC', 'DG', 'DA', 'DU', 'DT', 'DI', 'N',
 # )
-pdb_ligand_codes_file = Path(core_folder, 'chem_comp_parsed.txt')
-pdb_lig_codes_manual = Path(core_folder, 'chem_comp_added.txt')
-pdb_ligand_codes = set(
-    i.strip()
-    for i in chain(
-        pdb_ligand_codes_file.read_text().split('\n'),
-        pdb_lig_codes_manual.read_text().split('\n'),
-        )
-    if not i.startswith('#')
-    )
 
-blocked_ids_file = Path(core_folder, 'discarded_ids.txt')
-blocked_ids = [
-    i for i in blocked_ids_file.read_text().split('\n')
-    if i and not i.startswith('#')
-    ]
 
 residue_elements = {'C', 'O', 'N', 'H', 'S', 'Se', 'D'}
 minimal_bb_atoms = ['N', 'CA', 'C']  # ordered!

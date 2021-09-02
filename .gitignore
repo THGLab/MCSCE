@@ -109,3 +109,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Dunbrack library files
+SimpleOpt1-5/

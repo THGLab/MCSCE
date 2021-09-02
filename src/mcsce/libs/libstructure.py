@@ -4,7 +4,13 @@ Store internal protein structure representation.
 Classes
 -------
 Structure
-    The main API that represents a protein structure in IDPConfGen.
+    The main API that represents a protein structure in MCSCE.
+
+Original code in this file from IDP Conformer Generator package
+(https://github.com/julie-forman-kay-lab/IDPConformerGenerator)
+developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
+MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
+Modifications herein are of MCSCE authors.
 """
 import traceback
 import warnings
@@ -12,8 +18,9 @@ from collections import defaultdict
 from functools import reduce
 
 import numpy as np
-from mcsce import log
-from mcsce.core.definitions import aa3to1, blocked_ids, pdb_ligand_codes
+from copy import deepcopy
+# from mcsce import log
+from mcsce.core.definitions import backbone_atoms, aa3to1
 from mcsce.core.definitions import residue_elements as _allowed_elements
 from mcsce.core.exceptions import (
     EmptyFilterError,
@@ -23,8 +30,9 @@ from mcsce.core.exceptions import (
     )
 from mcsce.libs import libpdb
 from mcsce.libs.libcif import CIFParser, is_cif
-from mcsce.libs.libparse import group_runs, sample_case, type2string
+from mcsce.libs.libparse import group_runs, sample_case, type2string, is_valid_fasta, translate_seq_to_3l
 from mcsce.libs.libpdb import RE_ENDMDL, RE_MODEL, delete_insertions
+from mcsce.libs.libcalc import place_sidechain_template
 # from idpconfgen.logger import S
 
 
@@ -67,9 +75,13 @@ class Structure:
         'kwargs',
         ]
 
-    def __init__(self, data, **kwargs):
-
-        datastr = get_datastr(data)
+    def __init__(self, data=None, fasta=None, **kwargs):
+        if data is not None:
+            datastr = get_datastr(data)
+        elif fasta is not None:
+            datastr = fasta
+        else:
+            raise RuntimeError("Please specify either the data source or the FASTA sequence of the structure!")
         self._structure_parser = detect_structure_type(datastr)
 
         self._datastr = datastr
@@ -178,6 +190,15 @@ class Structure:
             }
 
     @property
+    def residue_types(self):
+        c, rs, rn = col_chainID, col_resSeq, col_resName
+
+        chains = defaultdict(dict)
+        for row in self.filtered_atoms:
+            chains[row[c]].setdefault(row[rs], row[rn])
+        return list(list(chains.values())[0].values())
+
+    @property
     def filtered_residues(self):
         """Filter residues according to :attr:`filters`."""
         FA = self.filtered_atoms
@@ -191,6 +212,28 @@ class Structure:
         Without filtering, without chain separation.
         """
         return [int(i) for i in dict.fromkeys(self.data_array[:, col_resSeq])]
+
+    @property
+    def atom_labels(self):
+        return self.data_array[:, col_name]
+
+    @property
+    def res_nums(self):
+        return self.data_array[:, col_resSeq].astype(int)
+
+    @property
+    def res_labels(self):
+        return self.data_array[:, col_resName]
+
+    @residues.setter
+    def residues(self, residue_idx):
+        """
+        Set the residue id of the current structure to a given value.
+
+        Supposed to be applied only to a structure containing only one residue (i.e. sidechain template), 
+        but does not perform this explicit check.
+        """
+        self.data_array[:, col_resSeq] = str(residue_idx)
 
     def pop_last_filter(self):
         """Pop last filter."""
@@ -216,6 +259,12 @@ class Structure:
         self.filters.append(
             lambda x: ib(x[col_name], x[col_element], minimal=minimal)
             )
+
+    def add_filter_resnum(self, resnum):
+        """Add filters for residue number"""
+        if type(resnum) is not str:
+            resnum = str(resnum)
+        self.filters.append(lambda x: x[col_resSeq] == resnum)
 
     def get_PDB(self, pdb_filters=None, renumber=True):
         """
@@ -250,11 +299,12 @@ class Structure:
 
         return lines
 
-    def get_sorted_minimal_backbone_coords(self, filtered=False):
+    def get_sorted_minimal_backbone_coords(self, filtered=False, with_O=False):
         """
         Generate a copy of the backbone coords sorted.
 
-        Sorting according N, CA, C.
+        When with_O is set to True, sorting according N, CA, C, O.
+        Otherwise sorting according to N, CA, C.
 
         This method was created because some PDBs may not have the
         backbone atoms sorted properly.
@@ -274,15 +324,51 @@ class Structure:
         N_num = N_coords.shape[0]
         CA_num = CA_coords.shape[0]
         C_num = C_coords.shape[0]
-        num_backbone_atoms = sum([N_num, CA_num, C_num])
-        assert num_backbone_atoms / 3 == N_num
 
-        minimal_backbone = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
-        minimal_backbone[0:-2:3] = N_coords
-        minimal_backbone[1:-1:3] = CA_coords
-        minimal_backbone[2::3] = C_coords
+        if with_O:
+            O_coords = coords[atoms[:, col_name] == 'O']
+            O_num = O_coords.shape[0]
+
+            num_backbone_atoms = sum([N_num, CA_num, C_num, O_num])
+            assert num_backbone_atoms / 4 == N_num
+
+            minimal_backbone = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
+            minimal_backbone[0:-3:4] = N_coords
+            minimal_backbone[1:-2:4] = CA_coords
+            minimal_backbone[2:-1:4] = C_coords
+            minimal_backbone[3::4] = O_coords
+
+        else:
+            num_backbone_atoms = sum([N_num, CA_num, C_num])
+            assert num_backbone_atoms / 3 == N_num
+
+            minimal_backbone = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
+            minimal_backbone[0:-2:3] = N_coords
+            minimal_backbone[1:-1:3] = CA_coords
+            minimal_backbone[2::3] = C_coords
 
         return minimal_backbone
+
+    def remove_side_chains(self):
+        """
+        Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm
+        """
+        copied_structure = deepcopy(self)
+        retained_atoms_filter = [atom in backbone_atoms for atom in copied_structure.data_array[:, col_name]]
+        copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
+        return copied_structure
+
+    def add_side_chain(self, res_idx, sidechain_template):
+        template_structure, sc_atoms = sidechain_template
+        self.add_filter_resnum(res_idx)
+        N_CA_C_coords = self.get_sorted_minimal_backbone_coords(filtered=True)
+        sc_all_atom_coords = place_sidechain_template(N_CA_C_coords, template_structure.coords)
+        template_structure.coords = sc_all_atom_coords
+        template_structure.residues = res_idx
+        self.pop_last_filter()
+        self._data_array = np.concatenate([self.data_array, template_structure.data_array[sc_atoms]])
+
+
 
     def get_coords_in_conf_label_order(self, conf_label=None):
         if self._conf_label_order is not None:
@@ -358,6 +444,16 @@ def parse_pdb_to_array(datastr, which='both'):
     populate_structure_array_from_pdb(record_lines, data_array)
     return data_array
 
+
+def parse_fasta_to_array(datastr, **kwargs):
+    """
+    Establish backbone data array from the specified FASTA sequence
+    """
+    n_residues = len(datastr)
+    residues_aa3 = translate_seq_to_3l(datastr, histidine_protonation='HIP')
+    data_array = gen_empty_structure_data_array(4 * n_residues)
+    populate_structure_array_with_backbone(residues_aa3, data_array)
+    return data_array
 
 def parse_cif_to_array(datastr, **kwargs):
     """
@@ -525,6 +621,27 @@ def populate_structure_array_from_pdb(record_lines, data_array):
         for column, slicer_item in enumerate(AS):
             data_array[row, column] = line[slicer_item].strip()
 
+def populate_structure_array_with_backbone(residue_codes, data_array):
+    """
+    Populate structure array by specifying the backbone atoms with coordinates default to all zeros
+    """
+    for residx, rescode in enumerate(residue_codes):
+        resid = residx + 1  # resid shoud start from 1
+        for atomidx, atom in enumerate(["N", "CA", "C", "O"]):
+            row_num = 4 * residx + atomidx
+            data_array[row_num, col_record] = "ATOM"
+            data_array[row_num, col_serial] = str(atomidx + 1)
+            data_array[row_num, col_name] = atom
+            data_array[row_num, col_resName] = rescode
+            data_array[row_num, col_chainID] = "A"
+            data_array[row_num, col_resSeq] = str(resid)
+            data_array[row_num, col_x] = "0.000"
+            data_array[row_num, col_y] = "0.000"
+            data_array[row_num, col_z] = "0.000"
+            data_array[row_num, col_occ] = "1.00"
+            data_array[row_num, col_temp] = "0.00"
+            data_array[row_num, col_element] = atom[0]
+
 
 def filter_record_lines(lines, which='both'):
     """Filter lines to get record lines only."""
@@ -660,6 +777,7 @@ record_line_headings = {
 structure_parsers = [
     (is_cif, parse_cif_to_array),
     (libpdb.is_pdb, parse_pdb_to_array),
+    (is_valid_fasta, parse_fasta_to_array)
     ]
 
 
@@ -709,10 +827,8 @@ def save_structure_by_chains(
     Logic to parse PDBs from RCSB.
     """
     # local assignments for speed boost :D
-    _DR = pdb_ligand_codes  # discarded residues
     _AE = _allowed_elements
     _S = Structure
-    _BI = blocked_ids
     _DI = [delete_insertions]
 
     pdbdata = _S(pdb_data)
@@ -724,7 +840,6 @@ def save_structure_by_chains(
 
     add_filter = pdbdata.add_filter
     pdbdata.add_filter_record_name(record_name)
-    add_filter(lambda x: x[col_resName] not in _DR)
     add_filter(lambda x: x[col_element] in _AE)
     add_filter(lambda x: x[col_altLoc] in altlocs)
 
@@ -739,12 +854,6 @@ def save_structure_by_chains(
         # downloaded is actualy in the blocked_ids.
         # because at the CLI level the user can add only the PDBID
         # to indicate download all chains, while some may be restricted
-        if chaincode in _BI:
-            log.info(S(
-                f'Ignored code {chaincode} because '
-                'is listed in blocked ids.'
-                ))
-            continue
 
         # upper and lower case combinations:
         possible_cases = sample_case(chain)
