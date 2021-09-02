@@ -20,9 +20,7 @@ from mcsce.core.build_definitions import (
     )
 from mcsce.libs.libparse import extract_ff_params_for_seq
 from mcsce.libs.libcalc import *
-from mcsce.libs.libbonded import *
-from mcsce.libs.libhpmf import *
-from mcsce.libs.libgb import *
+
 
 def prepare_energy_function(
         atom_labels,
@@ -104,6 +102,7 @@ def prepare_energy_function(
         dihedral_head_atom_matrix = None
 
     if angle_term or dihedral_term:
+        from mcsce.libs.libbonded import prepare_angles_and_dihedrals, init_angle_calculator, init_dihedral_calculator
         angles, dihedrals, improper_dihedrals = prepare_angles_and_dihedrals(angle_head_atom_matrix,
                                                          dihedral_head_atom_matrix,
                                                          connectivity_matrix,
@@ -170,13 +169,14 @@ def prepare_energy_function(
         # log.info('prepared Coulomb')
 
     if gb_term:
+        from mcsce.libs.libgb import create_atom_type_filters, init_gb_calculator
         atom_type_filters = create_atom_type_filters(atom_labels)
         gb_calc = init_gb_calculator(atom_type_filters, charges_ij)
         energy_func_terms_rij.append(gb_calc)
         # log.info('prepared GB implicit solvent')
 
     if hpmf_term:
-        
+        from mcsce.libs.libhpmf import convert_atom_types, init_hpmf_calculator
         atom_filter, sasa_atom_types = convert_atom_types(atom_labels, residue_numbers, residue_labels)
         # filter the connectivity matrix to only keep atoms that have SASA atom type definitions
         connectivity_matrix = connectivity_matrix[atom_filter, atom_filter]
