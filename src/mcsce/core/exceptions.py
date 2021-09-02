@@ -5,9 +5,9 @@ from mcsce import contactus as CONTACTUS
 from mcsce.core import count_string_formatters
 
 
-class IDPConfGenException(Exception):
+class MCSCEException(Exception):
     r"""
-    IDPConfGen base exception.
+    MCSCE base exception.
 
     Parameters
     ----------
@@ -25,15 +25,15 @@ class IDPConfGenException(Exception):
     Examples
     --------
     Uses the default errormsg.
-    >>> err = IDPCalculator(var1, var2)
+    >>> err = MCSCEException(var1, var2)
 
-    >>> err = IDPConfGenException('An error happened: {}, {}', var1, var2)
+    >>> err = MCSCEException('An error happened: {}, {}', var1, var2)
 
-    >>> err = IDPConfGenException('An error happened')
+    >>> err = MCSCEException('An error happened')
 
-    >>> err = IDPConfGenException(errmsg='Custom error msg')
+    >>> err = MCSCEException(errmsg='Custom error msg')
 
-    >>> err = IDPConfGenException(errmsg='')
+    >>> err = MCSCEException(errmsg='')
 
     """
 
@@ -89,65 +89,65 @@ class IDPConfGenException(Exception):
         return f'{self.__class__.__name__} * {self}'
 
 
-class PDBIDFactoryError(IDPConfGenException):
+class PDBIDFactoryError(MCSCEException):
     """General PDBIDFactory Exception."""
 
     pass
 
 
-class PDBFormatError(IDPConfGenException):
+class PDBFormatError(MCSCEException):
     """Exception for PDB format related issues."""
 
 
-class CIFFileError(IDPConfGenException):
+class CIFFileError(MCSCEException):
     """CIF file has loop_ but yet is invalid."""
 
     pass
 
 
-class DownloadFailedError(IDPConfGenException):
+class DownloadFailedError(MCSCEException):
     """Raise when download fails."""
 
     pass
 
 
-class EmptyFilterError(IDPConfGenException):
+class EmptyFilterError(MCSCEException):
     """Raise when PDB data filtering returns an empty selection."""
 
     errmsg = 'Filter returns empty selection, when saving file {}.'
 
 
-class DSSPParserError(IDPConfGenException):
+class DSSPParserError(MCSCEException):
     """Raise when libs.libparse.DSSPParserError needs it."""
 
     errmsg = 'Error while parsing: {}'
 
 
-class DSSPSecStructError(IDPConfGenException):
+class DSSPSecStructError(MCSCEException):
     """Raise when libs.libparse.DSSPParserError needs it."""
 
     errmsg = 'Values differ from possible DSSP secondary structure keys.'
 
 
-class DSSPInputMissingError(IDPConfGenException):
+class DSSPInputMissingError(MCSCEException):
     """Raise when libs.libparse.DSSPParserError needs it."""
 
     errmsg = 'One of the two required positional arguments is missing.'
 
 
-class ParserNotFoundError(IDPConfGenException):
+class ParserNotFoundError(MCSCEException):
     """Raise when parser for PDB/CIF file is not found."""
 
     errmsg = 'Could not identity a proper parser.'
 
 
-class NotBuiltError(IDPConfGenException):
+class NotBuiltError(MCSCEException):
     """Raise when attempting to access data of an object before building."""
 
     pass
 
 
-class ReportOnCrashError(IDPConfGenException):
+class ReportOnCrashError(MCSCEException):
     """Raised when logger.report_on_crash."""
 
     errmsg = "Crash reported to {}."""
