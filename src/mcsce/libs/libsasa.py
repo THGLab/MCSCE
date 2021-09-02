@@ -91,36 +91,7 @@ def calc_sasa(atom_types, bond_connectivities, r_solvent=1.4):
     Si = 4 * np.pi * (Ri + r_solvent) ** 2
     summing_thresholds = Ri[:, None] + Ri[None, :] + 2 * Rs
     N = len(atom_types)
-    # # For numba
-    # dij = np.zeros((N, N))
-    # mask_filter = (1 - np.eye(N)).astype(np.bool8)
-    # product = np.zeros(N)
 
-    # @njit
-    # def calc_numba(coords, dij, product):
-    #     """
-    #     Main function for calculating solvent accessible surface area from the given coordinates
-    #     """
-    #     for i in range(N):
-    #         for j in range(N):
-    #             dij[i, j] = np.linalg.norm(coords[i] - coords[j])
-    #     # dij = np.linalg.norm(coords.reshape(N, 1, 3) - coords.reshape(1, N, 3), axis=-1)
-    #     mask = dij < summing_thresholds
-    #     mask *= mask_filter
-    #     bij = np.pi * (Ri + Rs).reshape(1, -1) * (summing_thresholds - dij) * \
-    #          (1 + (Ri.reshape(1, -1) - Ri.reshape(-1, 1)) / (dij + 1e-8))
-    #     product_terms = 1 - Pi.reshape(-1, 1) * Pij * bij / Si.reshape(-1, 1)
-    #     for i in range(N):
-    #         for j in range(N):
-    #             if not mask[i, j]:
-    #                 product_terms[i, j] = 1
-    #     # product_terms[~mask] = 1
-        
-    #     for i in range(N):
-    #         product[i] = np.prod(product_terms[i])
-    #     Ai = Si * product
-    #     # Ai = Si * np.prod(product_terms, axis=-1)
-    #     return Ai
 
     def calc(coords):
         """

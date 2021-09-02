@@ -167,22 +167,7 @@ dssp_trans_bytes = bytes.maketrans(
 # _discarded_residues = (
 # 'I', 'C', 'G', 'A', 'U', 'I', 'DC', 'DG', 'DA', 'DU', 'DT', 'DI', 'N',
 # )
-pdb_ligand_codes_file = Path(core_folder, 'chem_comp_parsed.txt')
-pdb_lig_codes_manual = Path(core_folder, 'chem_comp_added.txt')
-pdb_ligand_codes = set(
-    i.strip()
-    for i in chain(
-        pdb_ligand_codes_file.read_text().split('\n'),
-        pdb_lig_codes_manual.read_text().split('\n'),
-        )
-    if not i.startswith('#')
-    )
 
-blocked_ids_file = Path(core_folder, 'discarded_ids.txt')
-blocked_ids = [
-    i for i in blocked_ids_file.read_text().split('\n')
-    if i and not i.startswith('#')
-    ]
 
 residue_elements = {'C', 'O', 'N', 'H', 'S', 'Se', 'D'}
 minimal_bb_atoms = ['N', 'CA', 'C']  # ordered!

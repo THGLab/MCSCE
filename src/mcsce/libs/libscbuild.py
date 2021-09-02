@@ -7,77 +7,10 @@ Jul 27, 2021
 """
 
 import numpy as np
-from numba import njit
-from mcsce.libs.libcalc import calc_angle, calc_torsion_angles, rotate_coordinates_Q, hamiltonian_multiplication_Q
+from mcsce.libs.libcalc import calc_angle, calc_torsion_angles, rotate_coordinates_Q
 from mcsce.core.build_definitions import sidechain_templates
 
 
-
-# @njit
-# def Q_rotate(coords, rot_vec, angle_rad):
-#     """
-#     Rotate coordinates by radians along an axis.
-
-#     Uses quaternion operations as defined in the IDPConfGen package.
-
-#     Parameters
-#     ----------
-#     coords : nd.array (N, 3), dtype=np.float64
-#         The coordinates to ratote.
-
-#     angle_rad : float
-#         The angle in radians to rotate the coords.
-
-#     rot_vec : (,3)
-#         A 3D space vector around which to rotate coords.
-#         This is assumed to start from origin
-
-#     Returns
-#     -------
-#     nd.array shape (N, 3), dtype=np.float64
-#         The rotated coordinates
-#     """
-#     #assert coords.dim == 2
-#     assert coords.shape[1] == 3
-
-#     b2, b3, b4 = np.sin(angle_rad / 2) * rot_vec
-#     b1 = np.cos(angle_rad / 2)
-
-#     c1, c2, c3, c4 = hamiltonian_multiplication_Q(b1, b2, b3, b4, 0, coords[:, 0], coords[:, 1], coords[:, 2])
-#     d1, d2, d3, d4 = hamiltonian_multiplication_Q(c1, c2, c3, c4, b1, -b2, -b3, -b4)
-#     rotated = np.stack((d2, d3, d4)).T
-
-#     assert rotated.shape[1] == 3
-#     return rotated
-
-# def rotate_to_dihedral_value(coords, ref_coords, target_dihedral):
-#     """
-#     Rotate all atoms defined in coords so that the first atom in coords form a given target dihedral angle value with other three reference points
-
-#     Parameters
-#     ----------
-#     coords : nd.array (N, 3), dtype=np.float64
-#         The coordinates to ratote. The first element of coords is point D
-
-#     ref_coords : nd.array (3, 3), dtype=np.float64
-#         The coordinates of reference points A, B and C
-
-#     target_dihedral : float
-#         The target dihedral angle between A-B-C-D in degrees
-
-#     Returns
-#     -------
-#     nd.array shape (N, 3), dtype=np.float64
-#         The rotated coordinates
-#     """
-#     point_set = np.vstack((ref_coords, coords[0:1]))
-#     original_dihedral = calc_torsion_angles(point_set)[0]
-#     required_rotation = target_dihedral * np.pi / 180 - original_dihedral
-#     shift_arr = ref_coords[1]
-#     shifted_coords = coords - shift_arr
-#     shifted_ref_coords = ref_coords - shift_arr
-#     rotated_shifted_coords = Q_rotate(shifted_coords, shifted_ref_coords[-1], required_rotation)
-#     return rotated_shifted_coords + shift_arr
 
 
 

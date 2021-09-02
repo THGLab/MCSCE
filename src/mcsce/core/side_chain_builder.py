@@ -5,11 +5,9 @@ Coded by Jie Li
 Date created: Jul 29, 2021
 """
 
-from functools import partial
 import numpy as np
 from numba import njit
 
-# from mcsce import log
 from mcsce.core.rotamer_library import DunbrakRotamerLibrary
 from mcsce.core.build_definitions import sidechain_templates
 from mcsce.libs.libcalc import calc_torsion_angles, place_sidechain_template
@@ -17,8 +15,6 @@ from mcsce.libs.libscbuild import rotate_sidechain
 from tqdm import tqdm
 from copy import deepcopy
 
-# from multiprocessing import set_start_method
-# set_start_method("spawn")
 
 _rotamer_library = DunbrakRotamerLibrary()
 
@@ -30,19 +26,6 @@ def choose_random(array):
         if num > pointer:
             return idx
 
-# def efunc_calculator_proxy(efunc, coord_input):
-#     """
-#     A helper function that takes an efunc object and the inputs, and returns the result from the efunc. 
-#     Used as a proxy of the original efunc to make it picklable and used in multiprocessing
-#     """
-#     return efunc(coord_input)
-
-class efunc_calculator_proxy:
-    def __init__(self, efunc) -> None:
-        self.efunc = efunc
-
-    def __call__(self, coord_input):
-        return self.efunc(coord_input)
 
 def create_side_chain_structure(structure, sidechain_placeholders, energy_calculators, beta, save_addr=None):
     """
@@ -104,33 +87,27 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         energies = []
         
         all_coords = np.tile(coords[None], (len(candidiate_conformations), 1, 1))
-        # conformation_collection = []
         # for each rotamer, decide the resulting conformation and calculate its energy
         for tor_idx, tors in enumerate(candidiate_conformations):
             sidechain_with_specific_chi = rotate_sidechain(resname, tors)
             sc_conformation = place_sidechain_template(residue_bb_coords, sidechain_with_specific_chi[0])
-            # conformation_collection.append(sc_conformation)
             all_coords[tor_idx, -n_sidechain_atoms:] = sc_conformation[sidechain_atom_idx]
-            # energy = energy_func(coords)
-            # energies.append(energy)
         energies = energy_func(all_coords)
         energies_raw = deepcopy(energies)  # This is the raw energy values
+        
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
-            # log.info("Unresolvable clashes!")
-            # np.save(f"{exec_idx}_{idx}.npy", all_coords)
-            # np.save(f"{exec_idx}_tor.npy", candidiate_conformations)
-            # structure.write_PDB(f"{exec_idx}.pdb")
             return structure, False, None, None
+
         # renormalize energies to avoid numerical issues
         energies -= min(energies)
         adjusted_weights = candidate_probs * np.exp(-beta * energies)
         selected_idx = choose_random(adjusted_weights)
+
         # set the coordinates of the actual structure that has side chain for this residue grown
-        # coords[-n_sidechain_atoms:] = conformation_collection[selected_idx][sidechain_atom_idx]
-        
         structure.coords = all_coords[selected_idx]
         energy = energies_raw[selected_idx] # The raw energy to be returned
+
     # all side chains have been created, then return the final structure
     if save_addr is not None:
         structure.write_PDB(save_addr)
@@ -182,6 +159,7 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
     conformations = []
     energies = []
     if parallel_worker == 1:
+        # sequential execution
         for idx in tqdm(range(n_trials)):
             conf, succeeded, energy, _ = create_side_chain_structure(deepcopy(copied_backbone_structure), 
                             sidechain_placeholder_list, energy_calculator_list, beta, None)
@@ -189,6 +167,7 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
                 conformations.append(conf)
                 energies.append(energy)
     else:
+        # Use pathos to do multiprocessing, because the python default multiprocessing class cannot handle function closures
         import pathos
         pool = pathos.multiprocessing.ProcessPool(parallel_worker)
 
@@ -254,8 +233,6 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
             energy_func = efunc_creator(structure.atom_labels, 
                                         structure.res_nums,
                                         structure.res_labels)
-            # energy_func_proxy = partial(efunc_calculator_proxy, efunc=energy_func)
-            # energy_func_proxy = efunc_calculator_proxy(energy_func)
             energy_calculator_list.append(energy_func)
         else:
             energy_calculator_list.append(None)
@@ -269,9 +246,6 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
             conformations.append(conf)
             all_success_count += int(succeeded)
     else:
-        # import multiprocessing
-        # pool = multiprocessing.Pool(processes=parallel_worker)
-
         import pathos
         pool = pathos.multiprocessing.ProcessPool(parallel_worker)
         # results = pool.starmap(create_side_chain_structure, [[deepcopy(copied_backbone_structure), 

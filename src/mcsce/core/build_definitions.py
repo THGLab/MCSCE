@@ -12,24 +12,20 @@ from collections import defaultdict
 from copy import copy
 from math import pi
 from pathlib import Path
-from pprint import pprint
 from statistics import mean, stdev
 
 import numpy as np
 from scipy import spatial
 
 from mcsce.libs.libstructure import Structure, col_name
-from mcsce.core.definitions import backbone_atoms, aa1to3, aa3to1
+from mcsce.core.definitions import backbone_atoms, aa3to1
 
 
 pdist = spatial.distance.pdist
 _filepath = Path(__file__).resolve().parent  # folder
-_sidechain_template_files = sorted(list(
-    _filepath.joinpath('sidechain_templates', 'pdb_names').glob('*.pdb')))
 amber_pdbs = sorted(list(
     _filepath.joinpath('sidechain_templates', 'amber_names').glob('*.pdb')))
 _amber14sb = _filepath.joinpath('data', 'protein.ff14SB.xml')
-# _amber14sb = _filepath.joinpath('..','..','..','..','individual_term_ff','lj.xml')
 
 
 # amino-acids atom labels
@@ -57,7 +53,6 @@ def _read_labels(pdbs):
 
 # support figure, for the different histidine protonation states.
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3639364/figure/Fig1/
-atom_names_pdb = _read_labels(_sidechain_template_files)
 atom_names_amber = _read_labels(amber_pdbs)
 
 def read_ff14SB_params():

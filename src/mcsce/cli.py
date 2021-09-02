@@ -35,6 +35,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
     from mcsce.core.build_definitions import forcefields
     from mcsce.libs.libenergy import prepare_energy_function
     from mcsce.libs.libstructure import Structure
+    from functools import partial
 
 
     with open(logfile, "w") as f:

@@ -93,22 +93,6 @@ class DunbrakRotamerLibrary:
     def retrieve_torsion_and_prob(self, residue_type, phi, psi):
         if residue_type in ["HID", "HIE", "HIP"]:
             residue_type = "HIS"
-        # if np.isnan(phi):
-        #     # This is the first residue, which do not have phi
-        #     closest_psi = get_closest_angle(psi)
-        #     chis = np.concatenate([self._data[(residue_type, possible_phi, closest_psi)][0] 
-        #        for possible_phi in range(-180, 180, 10)])
-        #     probs = np.concatenate([self._data[(residue_type, possible_phi, closest_psi)][1] 
-        #        for possible_phi in range(-180, 180, 10)]) / 36
-        #     return [chis, probs]
-        # if np.isnan(psi):
-        #     # this is the last residue, which do not have psi
-        #     closest_phi = get_closest_angle(phi)
-        #     chis = np.concatenate([self._data[(residue_type, closest_phi, possible_psi)][0] 
-        #        for possible_psi in range(-180, 180, 10)])
-        #     probs = np.concatenate([self._data[(residue_type, closest_phi, possible_psi)][1] 
-        #        for possible_psi in range(-180, 180, 10)]) / 36
-        #     return [chis, probs]
         # TODO: select phi/psi according to the Ramanchandran plot
         if np.isnan(phi):
             # This is the first residue, which do not have phi, so select a random phi

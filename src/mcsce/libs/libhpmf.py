@@ -7,7 +7,6 @@ Coded by Jie Li
 Jun 4, 2021
 """
 
-from math import gamma
 from mcsce.core.definitions import aa_atom_type_mappings
 from . import libsasa
 import numpy as np
