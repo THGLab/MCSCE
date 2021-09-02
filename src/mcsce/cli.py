@@ -1,14 +1,6 @@
-from datetime import datetime
-import os
-from mcsce.core import build_definitions
-from mcsce.libs.libbuild import *
-from mcsce.libs.libstructure import Structure
-from mcsce.libs.libenergy import prepare_energy_function
-from mcsce.libs.libcalc import calc_torsion_angles
-from mcsce.core.side_chain_builder import create_side_chain_ensemble
 import argparse
-
-from tqdm import tqdm
+import os
+from datetime import datetime
 
 
 # Argument parser
@@ -38,15 +30,22 @@ def maincli():
 
 def main(input_structure, n_conf, n_worker, output_dir, logfile):
 
+    # antipattern to save time
+    from mcsce.core.side_chain_builder import create_side_chain_ensemble
+    from mcsce.core.build_definitions import forcefields
+    from mcsce.libs.libenergy import prepare_energy_function
+    from mcsce.libs.libstructure import Structure
+
+
     with open(logfile, "w") as f:
         f.write("PDB name,Succeeded,Time used\n ")
 
-    ff = build_definitions.forcefields["Amberff14SB"]
+    ff = forcefields["Amberff14SB"]
     ff_obj = ff(add_OXT=True, add_Nterminal_H=True)
 
     if n_worker is None:
         import multiprocessing
-        n_worker = multiprocessing.cpu_count()
+        n_worker = multiprocessing.cpu_count() - 1
     else:
         n_worker = n_worker
 
@@ -71,9 +70,14 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
         s.build()
         s = s.remove_side_chains()
 
-
-        conformations, success_indicator = create_side_chain_ensemble(s, n_conf, partial(prepare_energy_function,
-                 forcefield=ff_obj, terms=["lj", "clash"]), temperature=300, save_path=output_dir, parallel_worker=n_worker)
+        conformations, success_indicator = create_side_chain_ensemble(
+            s,
+            n_conf,
+            partial(prepare_energy_function, forcefield=ff_obj, terms=["lj", "clash"]),
+            temperature=300,
+            save_path=output_dir,
+            parallel_worker=n_worker,
+            )
 
         with open(logfile, "a") as logfile:
             logfile.write("%s,%d,%s\n" % (f, sum(success_indicator), str(datetime.now() - t0)))
