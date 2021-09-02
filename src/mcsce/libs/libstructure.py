@@ -20,7 +20,7 @@ from functools import reduce
 import numpy as np
 from copy import deepcopy
 # from mcsce import log
-from mcsce.core.definitions import backbone_atoms, aa3to1, blocked_ids, pdb_ligand_codes
+from mcsce.core.definitions import backbone_atoms, aa3to1
 from mcsce.core.definitions import residue_elements as _allowed_elements
 from mcsce.core.exceptions import (
     EmptyFilterError,
@@ -827,10 +827,8 @@ def save_structure_by_chains(
     Logic to parse PDBs from RCSB.
     """
     # local assignments for speed boost :D
-    _DR = pdb_ligand_codes  # discarded residues
     _AE = _allowed_elements
     _S = Structure
-    _BI = blocked_ids
     _DI = [delete_insertions]
 
     pdbdata = _S(pdb_data)
@@ -842,7 +840,6 @@ def save_structure_by_chains(
 
     add_filter = pdbdata.add_filter
     pdbdata.add_filter_record_name(record_name)
-    add_filter(lambda x: x[col_resName] not in _DR)
     add_filter(lambda x: x[col_element] in _AE)
     add_filter(lambda x: x[col_altLoc] in altlocs)
 
@@ -857,12 +854,6 @@ def save_structure_by_chains(
         # downloaded is actualy in the blocked_ids.
         # because at the CLI level the user can add only the PDBID
         # to indicate download all chains, while some may be restricted
-        if chaincode in _BI:
-            log.info(S(
-                f'Ignored code {chaincode} because '
-                'is listed in blocked ids.'
-                ))
-            continue
 
         # upper and lower case combinations:
         possible_cases = sample_case(chain)
