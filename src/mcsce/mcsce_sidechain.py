@@ -13,7 +13,7 @@ from mcsce.libs.libenergy import prepare_energy_function
 from mcsce.libs.libstructure import Structure
 from mcsce.core.side_chain_builder import create_side_chain
 
-def mcsce_sidechain(input_seq, coords, n_trials=200, efunc_terms=["lj", "clash"], temperature=300, parallel_worker=16):
+def mcsce_sidechain(input_seq, coords, n_trials=200, efunc_terms=["lj", "clash"], temperature=300, parallel_worker=16, mode="simple"):
     """
     This function takes an input FASTA string indicating the amino acid sequence, together with an Nx3 array for all coordinates of backbone atoms, and returns an array with shape Mx3 where M is the total number of atoms in the structure with side chains added. This function executes the MCSCE algorithm and returns the lowest energy conformation.
 
@@ -37,6 +37,10 @@ def mcsce_sidechain(input_seq, coords, n_trials=200, efunc_terms=["lj", "clash"]
     parallel_worker: int
         Number of workers for parallel execution
 
+    mode: either simple or exhaustive
+        Simple means generating sidechains sequentially and return the first structure without clashes
+        Exhaustive means generating n_trials structures and return the lowest energy one
+
     Returns
     ----------
     full_conformation: np.array with shape (M, 3)
@@ -49,9 +53,17 @@ def mcsce_sidechain(input_seq, coords, n_trials=200, efunc_terms=["lj", "clash"]
     ff = build_definitions.forcefields["Amberff14SB"]
     ff_obj = ff(add_OXT=True, add_Nterminal_H=True)
 
-    final_structure = create_side_chain(s, n_trials, partial(prepare_energy_function, forcefield=ff_obj, terms=efunc_terms), temperature=temperature, parallel_worker=parallel_worker)
+    if mode == "simple":
+        return_first_valid = True
+    elif mode == "exhaustive":
+        return_first_valid = False
+    else:
+        raise RuntimeError("Mode has to be either simple or exhaustive.")
+
+    final_structure = create_side_chain(s, n_trials, partial(prepare_energy_function, forcefield=ff_obj, terms=efunc_terms), temperature=temperature, parallel_worker=parallel_worker, return_first_valid=return_first_valid)
 
     if final_structure is not None:
+        # final_structure.write_PDB("final.pdb")
         return final_structure.coords
     else:
         return None
@@ -364,5 +376,5 @@ if __name__ == "__main__":
        [40.373, 39.813, 33.944],
        [40.031, 39.992, 35.432],
        [38.933, 40.525, 35.687]])
-    result = mcsce_sidechain(fasta, backbone_coords, n_trials=25, efunc_terms=["lj"])
+    result = mcsce_sidechain(fasta, backbone_coords, n_trials=25, efunc_terms=["lj", "clash"])
     print(result)

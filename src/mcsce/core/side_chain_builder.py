@@ -113,7 +113,7 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         structure.write_PDB(save_addr)
     return structure, True, energy, save_addr
 
-def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_worker=16):
+def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_worker=16, return_first_valid=False):
     """
     Using the MCSCE workflow to add sidechains to a backbone-only PDB structure. The building process will be repeated for n_trial times, but only the lowest energy conformation will be returned 
 
@@ -124,6 +124,7 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
 
     n_trials: int
         The total number of trials for the generation procedure
+        if n_trials <=0, then sequentially generate structures until the first valid structure is generated
 
     efunc_creator: partial function
         A partial function for creating energy functions for evaluating the generated conformations
@@ -134,6 +135,9 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
 
     parallel_worker: int
         Number of workers for parallel execution
+
+    return_first_valid: bool
+        Controls the behavior of whether execute parallel building and return the first valid structure (no clashes), instead of generating a collection of structures and return the lowest energy one
 
     Returns
     ----------
@@ -158,29 +162,39 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
             energy_calculator_list.append(None)
     conformations = []
     energies = []
-    if parallel_worker == 1:
-        # sequential execution
-        for idx in tqdm(range(n_trials)):
+    if return_first_valid:
+        # Sequential execution with maximal n_trial times, but return the first valid structure
+        for _ in range(n_trials):
             conf, succeeded, energy, _ = create_side_chain_structure(deepcopy(copied_backbone_structure), 
                             sidechain_placeholder_list, energy_calculator_list, beta, None)
             if succeeded:
-                conformations.append(conf)
-                energies.append(energy)
+                return conf
+        return None
     else:
-        # Use pathos to do multiprocessing, because the python default multiprocessing class cannot handle function closures
-        import pathos
-        pool = pathos.multiprocessing.ProcessPool(parallel_worker)
+        # Emsemble building with either sequential execution or parallelization
+        if parallel_worker == 1:
+            # sequential execution
+            for idx in tqdm(range(n_trials)):
+                conf, succeeded, energy, _ = create_side_chain_structure(deepcopy(copied_backbone_structure), 
+                                sidechain_placeholder_list, energy_calculator_list, beta, None)
+                if succeeded:
+                    conformations.append(conf)
+                    energies.append(energy)
+        else:
+            # Use pathos to do multiprocessing, because the python default multiprocessing class cannot handle function closures
+            import pathos
+            pool = pathos.multiprocessing.ProcessPool(parallel_worker)
 
-        result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_trials, 
-                            [sidechain_placeholder_list] * n_trials, [energy_calculator_list] * n_trials,
-                            [beta] * n_trials, [None] * n_trials)
-        conformations = []
-        energies = []
-        for conf, succeeded, energy, _ in tqdm(result_iterator, total=n_trials):
-            if succeeded:
-                conformations.append(conf)
-                energies.append(energy)
-            
+            result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_trials, 
+                                [sidechain_placeholder_list] * n_trials, [energy_calculator_list] * n_trials,
+                                [beta] * n_trials, [None] * n_trials)
+            conformations = []
+            energies = []
+            for conf, succeeded, energy, _ in tqdm(result_iterator, total=n_trials):
+                if succeeded:
+                    conformations.append(conf)
+                    energies.append(energy)
+                
         # define the lowest energy conformation and return
         if len(energies) == 0:
             return None
