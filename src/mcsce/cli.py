@@ -36,7 +36,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
     from mcsce.libs.libenergy import prepare_energy_function
     from mcsce.libs.libstructure import Structure
     from functools import partial
-
+    base_dir = output_dir
 
     with open(logfile, "w") as f:
         f.write("PDB name,Succeeded,Time used\n ")
@@ -61,10 +61,10 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
     for f in all_pdbs:
         print("Now working on", f)
         t0 = datetime.now()
-        if output_dir is None:
+        if base_dir is None:
             output_dir = os.path.splitext(os.path.basename(f))[0] + "_mcsce"
         else:
-            output_dir = output_dir + "/" + os.path.splitext(os.path.basename(f))[0] + "_mcsce"
+            output_dir = base_dir + "/" + os.path.splitext(os.path.basename(f))[0] + "_mcsce"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         s = Structure(f)
@@ -80,8 +80,8 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
             parallel_worker=n_worker,
             )
 
-        with open(logfile, "a") as logfile:
-            logfile.write("%s,%d,%s\n" % (f, sum(success_indicator), str(datetime.now() - t0)))
+        with open(logfile, "a") as f:
+            f.write("%s,%d,%s\n" % (f, sum(success_indicator), str(datetime.now() - t0)))
 
     print("All finished!")
 
