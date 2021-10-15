@@ -241,8 +241,8 @@ def generate_residue_template_topology(
 
         ## this should be only 'C'
         #v1['OXT'] = copy(v1['O'])
-        if k1 == 'PRO':
-            continue
+        # if k1 == 'PRO':  # why should proline be skipped?
+        #     continue
 
         if add_Nterminal_H:
             add_Nterm_H_connectivity(v1)
@@ -258,13 +258,15 @@ def add_Nterm_H_connectivity(connectivity_dict):
     This maintains compatibility with XML forcefields obtained
     from the OpenMM project.
     """
-    assert 'H' in connectivity_dict, connectivity_dict
+    # assert 'H' in connectivity_dict, connectivity_dict
     for atom, list_of_connects in connectivity_dict.items():
-        if 'H' in list_of_connects:
+        # if 'H' in list_of_connects:
+        if atom == "N":
             list_of_connects.extend(('H1', 'H2', 'H3'))
 
     for h in ('H1', 'H2', 'H3'):
-        connectivity_dict[h] = copy(connectivity_dict['H'])
+        # connectivity_dict[h] = copy(connectivity_dict['H'])
+        connectivity_dict[h] = ["N"]
 
 
 def add_OXT_to_connectivity(connectivity_dict):
