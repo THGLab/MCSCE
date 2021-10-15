@@ -399,6 +399,13 @@ class Structure:
             except UserWarning:
                 raise EmptyFilterError(filename)
 
+    def reorder_with_resnum(self):
+        """Reorder all atoms in the Structure so that it strictly follows the residue number order"""
+        sorted_indices = np.argsort(self.res_nums, kind="mergesort")
+        self._data_array = self.data_array[sorted_indices]
+        self.data_array[:, col_serial] = (np.arange(len(sorted_indices)) + 1).astype('<U8')
+
+
 
 def parse_pdb_to_array(datastr, which='both'):
     """

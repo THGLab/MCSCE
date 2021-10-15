@@ -111,7 +111,8 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         structure.coords = all_coords[selected_idx]
         energy = energies_raw[selected_idx] # The raw energy to be returned
 
-    # all side chains have been created, then return the final structure
+    # all side chains have been created, then reorder all atoms and return the final structure
+    structure.reorder_with_resnum()
     if save_addr is not None:
         structure.write_PDB(save_addr)
     return structure, True, energy, save_addr
