@@ -80,8 +80,8 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
             parallel_worker=n_worker,
             )
 
-        with open(logfile, "a") as f:
-            f.write("%s,%d,%s\n" % (f, sum(success_indicator), str(datetime.now() - t0)))
+        with open(logfile, "a") as _log:
+            _log.write("%s,%d,%s\n" % (f, sum(success_indicator), str(datetime.now() - t0)))
 
     print("All finished!")
 
