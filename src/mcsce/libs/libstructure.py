@@ -451,7 +451,7 @@ def parse_fasta_to_array(datastr, **kwargs):
     """
     n_residues = len(datastr)
     residues_aa3 = translate_seq_to_3l(datastr, histidine_protonation='HIP')
-    data_array = gen_empty_structure_data_array(4 * n_residues)
+    data_array = gen_empty_structure_data_array(5 * n_residues + 3) # For each residue we have N, CA, C, O, HN, then there are two added HN on N-terminal and one OXT on C terminal
     populate_structure_array_with_backbone(residues_aa3, data_array)
     return data_array
 
@@ -620,17 +620,30 @@ def populate_structure_array_from_pdb(record_lines, data_array):
     for row, line in enumerate(record_lines):
         for column, slicer_item in enumerate(AS):
             data_array[row, column] = line[slicer_item].strip()
+            if column == 2:
+                # make sure the pdb is using Amber naming: multiple H counting is at the end
+                original_name = data_array[row, column]
+                if original_name[0].isdigit():
+                    assert "H" in original_name
+                    new_name = original_name[1:] + original_name[0]
+                    data_array[row, column] = new_name
 
 def populate_structure_array_with_backbone(residue_codes, data_array):
     """
     Populate structure array by specifying the backbone atoms with coordinates default to all zeros
     """
+    row_num = 0
     for residx, rescode in enumerate(residue_codes):
         resid = residx + 1  # resid shoud start from 1
-        for atomidx, atom in enumerate(["N", "CA", "C", "O"]):
-            row_num = 4 * residx + atomidx
+        if resid == 1: # N terminal
+            fill_in_atoms = ["N", "CA", "C", "O", "H1", "H2", "H3"]
+        elif resid == len(residue_codes): # C terminal
+            fill_in_atoms = ["N", "CA", "C", "O", "H", "OXT"]
+        else:
+            fill_in_atoms = ["N", "CA", "C", "O", "H"]
+        for atom in fill_in_atoms:
             data_array[row_num, col_record] = "ATOM"
-            data_array[row_num, col_serial] = str(atomidx + 1)
+            data_array[row_num, col_serial] = str(row_num + 1)
             data_array[row_num, col_name] = atom
             data_array[row_num, col_resName] = rescode
             data_array[row_num, col_chainID] = "A"
@@ -641,6 +654,7 @@ def populate_structure_array_with_backbone(residue_codes, data_array):
             data_array[row_num, col_occ] = "1.00"
             data_array[row_num, col_temp] = "0.00"
             data_array[row_num, col_element] = atom[0]
+            row_num += 1
 
 
 def filter_record_lines(lines, which='both'):
