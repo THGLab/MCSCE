@@ -413,19 +413,20 @@ def extract_ff_params_for_seq(
     params_append = params_l.append
 
     zipit = zip(atom_labels, residue_numbers, residue_labels)
+    was_in_N_terminal = was_in_C_terminal = False
     for atom_name, res_num, res_label in zipit:
 
-        # adds C to the terminal residues
-        if res_num == max(residue_numbers):
-            res = 'C' + res_label
-            was_in_C_terminal = True
-            assert res.isupper() and len(res) == 4, res
+        # adds N and C to the terminal residues
 
-        elif res_num == min(residue_numbers):
+        if res_num == min(residue_numbers):
             res = 'N' + res_label
             was_in_N_terminal = True
             assert res.isupper() and len(res) == 4, res
 
+        elif res_num == max(residue_numbers):
+            res = 'C' + res_label
+            was_in_C_terminal = True
+            assert res.isupper() and len(res) == 4, res
         else:
             res = res_label
         # res = res_label # debug
@@ -454,10 +455,10 @@ def extract_ff_params_for_seq(
         elif param == "atom_type":
             params_append(atype)
 
-    assert was_in_C_terminal, \
-        'The C terminal residue was never computed. It should have.'
-    assert was_in_N_terminal, \
-        'The N terminal residue was never computed. It should have.'
+    # assert was_in_C_terminal, \
+    #     'The C terminal residue was never computed. It should have.'
+    # assert was_in_N_terminal, \
+    #     'The N terminal residue was never computed. It should have.'
 
     assert isinstance(params_l, list)
     return params_l

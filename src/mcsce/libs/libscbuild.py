@@ -184,7 +184,8 @@ def rotate_sidechain(res_type, tors):
     unit_vector = CB/np.linalg.norm(CB)
     # HA = np.where(sidechain_label=='HA')[0][0]
     # chi1_idx = np.delete(sidechain_idx, np.where(sidechain_idx==HA)[0][0])
-    chi1_idx = sidechain_idx
+    HA = np.where(np.isin(sidechain_label, ['HA']))[0]
+    chi1_idx = np.delete(sidechain_idx, np.where(np.isin(sidechain_idx, HA))[0])
     template[chi1_idx, :] = rotate_tor(ori_chi1, tors[0], unit_vector, 
                                              template[chi1_idx, :], CB)
     if len(tors) == 1:
