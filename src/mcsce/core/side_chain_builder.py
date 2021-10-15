@@ -1,5 +1,8 @@
 """
-The main logic for building side chain with Monte Carlo Side Chain Ensemble algorithm, as defined in Bhowmick, Asmit, and Teresa Head-Gordon. "A Monte Carlo method for generating side chain structural ensembles." Structure 23.1 (2015): 44-55.
+The main logic for building side chain with Monte Carlo Side Chain Ensemble algorithm,
+ as defined in Bhowmick, Asmit, and Teresa Head-Gordon.
+  "A Monte Carlo method for generating side chain structural ensembles."
+  Structure 23.1 (2015): 44-55.
 
 Coded by Jie Li
 Date created: Jul 29, 2021

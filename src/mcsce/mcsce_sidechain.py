@@ -15,7 +15,10 @@ from mcsce.core.side_chain_builder import create_side_chain
 
 def mcsce_sidechain(input_seq, coords, n_trials=200, efunc_terms=["lj", "clash"], temperature=300, parallel_worker=16, mode="simple"):
     """
-    This function takes an input FASTA string indicating the amino acid sequence, together with an Nx3 array for all coordinates of backbone atoms, and returns an array with shape Mx3 where M is the total number of atoms in the structure with side chains added. This function executes the MCSCE algorithm and returns the lowest energy conformation.
+    This function takes an input FASTA string indicating the amino acid sequence, 
+    together with an Nx3 array for all coordinates of backbone atoms, 
+    and returns an array with shape Mx3 where M is the total number of atoms in the structure with side chains added. 
+    This function executes the MCSCE algorithm and returns the lowest energy conformation.
 
     Parameters
     ----------

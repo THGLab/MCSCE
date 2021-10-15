@@ -14,7 +14,7 @@ from math import pi
 # does not import the Path from IDPConfgen to avoid circular imports
 from pathlib import Path
 
-backbone_atoms = ('N', 'C', 'CA', 'O', 'OXT', 'H', "HA", 'H1', 'H2', 'H3')
+backbone_atoms = ('N', 'C', 'CA', 'O', 'OXT', 'H', 'H1', 'H2', 'H3')
 core_folder = Path(__file__).parent
 faspr_dun2010bbdep_path = Path(
     core_folder,
