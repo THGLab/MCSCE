@@ -256,13 +256,17 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
             energy_calculator_list.append(None)
     print("Finished preparing all energy functions. Now start conformer generation")
     conformations = []
-    all_success_count = 0
+    success_indicator = []
+    energies = {}
+
     if parallel_worker == 1:
         for idx in tqdm(range(n_conformations)):
-            conf, succeeded = create_side_chain_structure(deepcopy(copied_backbone_structure), 
+            conf, succeeded, energy, save_dir = create_side_chain_structure(deepcopy(copied_backbone_structure), 
                             sidechain_placeholder_list, energy_calculator_list, beta, save_path + f"/{idx}.pdb")
             conformations.append(conf)
-            all_success_count += int(succeeded)
+            success_indicator.append(succeeded)
+            if succeeded:
+                energies[save_dir] = energy
     else:
         import pathos
         pool = pathos.multiprocessing.ProcessPool(parallel_worker)
@@ -271,19 +275,17 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
         result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_conformations, 
                             [sidechain_placeholder_list] * n_conformations, [energy_calculator_list] * n_conformations,
                             [beta] * n_conformations, [save_path + f"/{n}.pdb" for n in range(n_conformations)])
-        conformations = []
-        success_indicator = []
-        energies = {}
-        all_success_count = 0
+        
+
         for result in tqdm(result_iterator, total=n_conformations):
             conformations.append(result[0])
             success_indicator.append(result[1])
             if result[1]:
                 # A succeeded case
                 energies[result[3]] = result[2]
-        with open(save_path + "/energies.csv", "w") as f:
-            f.write("File name,Energy(kJ/mol)\n")
-            for item in energies:
-                f.write("%s,%f\n" % (item, energies[item]))
+    with open(save_path + "/energies.csv", "w") as f:
+        f.write("File name,Energy(kJ/mol)\n")
+        for item in energies:
+            f.write("%s,%f\n" % (item, energies[item]))
     return conformations, success_indicator
 
