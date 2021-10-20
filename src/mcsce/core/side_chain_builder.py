@@ -21,6 +21,10 @@ from copy import deepcopy
 
 _rotamer_library = DunbrakRotamerLibrary()
 
+copied_backbone_structure = None
+sidechain_placeholders = []
+energy_calculators = []
+
 @njit
 def choose_random(array):
     cumulative = [np.sum(array[:i + 1]) for i in range(len(array))]
@@ -30,7 +34,7 @@ def choose_random(array):
             return idx
 
 
-def create_side_chain_structure(structure, sidechain_placeholders, energy_calculators, beta, save_addr=None):
+def create_side_chain_structure(beta, save_addr=None):
     """
     A function that takes a backbone-only structure and generates a conformation using the Monte Carlo approach
 
@@ -63,11 +67,12 @@ def create_side_chain_structure(structure, sidechain_placeholders, energy_calcul
         The energy for the generated conformation
     """
     
-    N_CA_C_coords = structure.get_sorted_minimal_backbone_coords()
+    N_CA_C_coords = copied_backbone_structure.get_sorted_minimal_backbone_coords()
     all_backbone_dihedrals = calc_torsion_angles(N_CA_C_coords)
     all_phi = np.concatenate([[np.nan], all_backbone_dihedrals[2::3]]) * 180 / np.pi
     all_psi = np.concatenate([all_backbone_dihedrals[::3], [np.nan]]) * 180 / np.pi
-    for idx, resname in enumerate(structure.residue_types):
+    structure = copied_backbone_structure
+    for idx, resname in enumerate(copied_backbone_structure.residue_types):
         # copy coordinates from the previous growing step to the current placeholder
         previous_coords = structure.coords
         structure = deepcopy(sidechain_placeholders[idx])
@@ -148,29 +153,33 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
     lowest_energy_conformation: Structure object
         The generated lowest-energy conformation structure with sidechains, or None when every trial of the conformation generation failed
     """
+    # declare global variabales
+    global copied_backbone_structure
+    global sidechain_placeholders
+    global energy_calculators
+    
     # convert temperature to beta
     beta = 1 / (temperature * 0.008314462) # k unit: kJ/mol/K
     copied_backbone_structure = deepcopy(structure)
-    sidechain_placeholder_list = []
-    energy_calculator_list = []
+    sidechain_placeholders = []
+    energy_calculators = []
     for idx, resname in tqdm(enumerate(structure.residue_types), total=len(structure.residue_types)):
         template = sidechain_templates[resname]
         structure.add_side_chain(idx + 1, deepcopy(template))
-        sidechain_placeholder_list.append(deepcopy(structure))
+        sidechain_placeholders.append(deepcopy(structure))
         if resname not in ["GLY", "ALA"]:
             energy_func = efunc_creator(structure.atom_labels, 
                                         structure.res_nums,
                                         structure.res_labels)
-            energy_calculator_list.append(energy_func)
+            energy_calculators.append(energy_func)
         else:
-            energy_calculator_list.append(None)
+            energy_calculators.append(None)
     conformations = []
     energies = []
     if return_first_valid:
         # Sequential execution with maximal n_trial times, but return the first valid structure
         for _ in range(n_trials):
-            conf, succeeded, energy, _ = create_side_chain_structure(deepcopy(copied_backbone_structure), 
-                            sidechain_placeholder_list, energy_calculator_list, beta, None)
+            conf, succeeded, energy, _ = create_side_chain_structure( beta, None)
             if succeeded:
                 return conf
         return None
@@ -179,8 +188,7 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
         if parallel_worker == 1:
             # sequential execution
             for idx in tqdm(range(n_trials)):
-                conf, succeeded, energy, _ = create_side_chain_structure(deepcopy(copied_backbone_structure), 
-                                sidechain_placeholder_list, energy_calculator_list, beta, None)
+                conf, succeeded, energy, _ = create_side_chain_structure( beta, None)
                 if succeeded:
                     conformations.append(conf)
                     energies.append(energy)
@@ -189,8 +197,7 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
             import pathos
             pool = pathos.multiprocessing.ProcessPool(parallel_worker)
 
-            result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_trials, 
-                                [sidechain_placeholder_list] * n_trials, [energy_calculator_list] * n_trials,
+            result_iterator = pool.uimap(
                                 [beta] * n_trials, [None] * n_trials)
             conformations = []
             energies = []
@@ -237,23 +244,28 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
     all_success_count: int
         Total number of the generated structures that are not early-stopped due to unresolvable clashes
     """
+    # declare global variables
+    global copied_backbone_structure
+    global sidechain_placeholders
+    global energy_calculators
+
     # convert temperature to beta
     beta = 1 / (temperature * 0.008314462) # k unit: kJ/mol/K
     copied_backbone_structure = deepcopy(structure)
-    sidechain_placeholder_list = []
-    energy_calculator_list = []
+    sidechain_placeholders = []
+    energy_calculators = []
     print("Start preparing energy calculators at different sidechain completion levels")
     for idx, resname in tqdm(enumerate(structure.residue_types), total=len(structure.residue_types)):
         template = sidechain_templates[resname]
         structure.add_side_chain(idx + 1, deepcopy(template))
-        sidechain_placeholder_list.append(deepcopy(structure))
+        sidechain_placeholders.append(deepcopy(structure))
         if resname not in ["GLY", "ALA"]:
             energy_func = efunc_creator(structure.atom_labels, 
                                         structure.res_nums,
                                         structure.res_labels)
-            energy_calculator_list.append(energy_func)
+            energy_calculators.append(energy_func)
         else:
-            energy_calculator_list.append(None)
+            energy_calculators.append(None)
     print("Finished preparing all energy functions. Now start conformer generation")
     conformations = []
     success_indicator = []
@@ -261,8 +273,7 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
 
     if parallel_worker == 1:
         for idx in tqdm(range(n_conformations)):
-            conf, succeeded, energy, save_dir = create_side_chain_structure(deepcopy(copied_backbone_structure), 
-                            sidechain_placeholder_list, energy_calculator_list, beta, save_path + f"/{idx}.pdb")
+            conf, succeeded, energy, save_dir = create_side_chain_structure(beta, save_path + f"/{idx}.pdb")
             conformations.append(conf)
             success_indicator.append(succeeded)
             if succeeded:
@@ -272,8 +283,7 @@ def create_side_chain_ensemble(structure, n_conformations, efunc_creator, temper
         pool = pathos.multiprocessing.ProcessPool(parallel_worker)
         # results = pool.starmap(create_side_chain_structure, [[deepcopy(copied_backbone_structure), 
         #                     sidechain_placeholder_list, energy_calculator_list, beta]] * n_conformations)
-        result_iterator = pool.uimap(create_side_chain_structure, [deepcopy(copied_backbone_structure)] * n_conformations, 
-                            [sidechain_placeholder_list] * n_conformations, [energy_calculator_list] * n_conformations,
+        result_iterator = pool.uimap(create_side_chain_structure, 
                             [beta] * n_conformations, [save_path + f"/{n}.pdb" for n in range(n_conformations)])
         
 
