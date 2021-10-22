@@ -363,10 +363,11 @@ class Structure:
         self.add_filter_resnum(res_idx)
         N_CA_C_coords = self.get_sorted_minimal_backbone_coords(filtered=True)
         sc_all_atom_coords = place_sidechain_template(N_CA_C_coords, template_structure.coords)
-        template_structure.coords = sc_all_atom_coords
-        template_structure.residues = res_idx
+        sidechain_data_arr = template_structure.data_array.copy()
+        sidechain_data_arr[:, cols_coords] = np.round(sc_all_atom_coords, decimals=3).astype('<U8')
+        sidechain_data_arr[:, col_resSeq] = str(res_idx)
         self.pop_last_filter()
-        self._data_array = np.concatenate([self.data_array, template_structure.data_array[sc_atoms]])
+        self._data_array = np.concatenate([self.data_array, sidechain_data_arr[sc_atoms]])
 
 
 
