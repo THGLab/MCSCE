@@ -299,11 +299,69 @@ class Structure:
 
         return lines
 
+    def get_all_backbone_atom_coords(self):
+        """
+        Generate a copy of the backbone coords according to the order:
+        ["N", "CA", "C", "O", "H1", "H2", "H3"] for N-terminal residue,
+        ["N", "CA", "C", "O", "H"] for middle residues, and 
+        then ["N", "CA", "C", "O", "H", "OXT"] for C-terminal residue
+
+        For any proline residue, there will be no H (When PRO is the N-terminal
+        there will still be H1 and H2)
+        """
+        pro_indicator = self.residue_types == "PRO"
+        N_term_pro = pro_indicator[0]
+        n_pro = np.sum(pro_indicator)
+        num_backbone_atoms = len(self.residue_types) * 5 - n_pro + 3 # n_pro do not have hydrogen, additionally have H2, H3 and OXT
+        backbone_coords = np.zeros((num_backbone_atoms, 3), dtype=np.float32)
+        atoms = self.data_array
+        coords = atoms[:, cols_coords]
+        # First create coordinate lists for N, CA, C, O and H
+        # For H, those positions corrisponding to prolines will be zero
+        N_coords = coords[atoms[:, col_name] == 'N']
+        CA_coords = coords[atoms[:, col_name] == 'CA']
+        C_coords = coords[atoms[:, col_name] == 'C']
+        O_coords = coords[atoms[:, col_name] == 'O']
+        H_coords = np.zeros_like(O_coords)
+        H_indices = np.where(np.logical_not(pro_indicator))[0]
+        if not N_term_pro:
+            H_indices = np.delete(H_indices, 0)
+        H_coords[H_indices] = coords[atoms[:, col_name] == 'H']
+        # Write in the N-terminal backbone coordinates
+        backbone_coords[0] = N_coords[0]
+        backbone_coords[1] = CA_coords[0]
+        backbone_coords[2] = C_coords[0]
+        backbone_coords[3] = O_coords[0]
+        backbone_coords[4] = coords[atoms[:, col_name] == 'H1'][0]
+        backbone_coords[5] = coords[atoms[:, col_name] == 'H2'][0]
+        fillin_idx = 6
+        if not N_term_pro:
+            backbone_coords[6] = coords[atoms[:, col_name] == 'H3'][0]
+            fillin_idx = 7
+        # Non N-terminal residues
+        for i in range(1, len(self.residue_types)):
+            backbone_coords[fillin_idx] = N_coords[i]
+            backbone_coords[fillin_idx + 1] = CA_coords[i]
+            backbone_coords[fillin_idx + 2] = C_coords[i]
+            backbone_coords[fillin_idx + 3] = O_coords[i]
+            fillin_idx += 4
+            if not pro_indicator[i]:
+                backbone_coords[fillin_idx] = H_coords[i]
+                fillin_idx += 1
+        # Finally the OXT
+        backbone_coords[fillin_idx] = coords[atoms[:, col_name] == 'OXT'][0]
+        assert fillin_idx + 1 == num_backbone_atoms
+        return backbone_coords
+
     def get_sorted_minimal_backbone_coords(self, filtered=False, with_O=False):
         """
         Generate a copy of the backbone coords sorted.
 
         When with_O is set to True, sorting according N, CA, C, O.
+        
+        When all_backbone is set to True, the order will be 
+        
+
         Otherwise sorting according to N, CA, C.
 
         This method was created because some PDBs may not have the
@@ -459,7 +517,9 @@ def parse_fasta_to_array(datastr, **kwargs):
     """
     n_residues = len(datastr)
     residues_aa3 = translate_seq_to_3l(datastr, histidine_protonation='HIP')
-    data_array = gen_empty_structure_data_array(5 * n_residues + 3) # For each residue we have N, CA, C, O, HN, then there are two added HN on N-terminal and one OXT on C terminal
+    # For each residue we have N, CA, C, O, HN, then there are two added HN on N-terminal and one OXT on C terminal
+    # Also prolines do not have HN
+    data_array = gen_empty_structure_data_array(5 * n_residues + 3 - datastr.count('P')) 
     populate_structure_array_with_backbone(residues_aa3, data_array)
     return data_array
 
@@ -644,11 +704,18 @@ def populate_structure_array_with_backbone(residue_codes, data_array):
     for residx, rescode in enumerate(residue_codes):
         resid = residx + 1  # resid shoud start from 1
         if resid == 1: # N terminal
-            fill_in_atoms = ["N", "CA", "C", "O", "H1", "H2", "H3"]
-        elif resid == len(residue_codes): # C terminal
-            fill_in_atoms = ["N", "CA", "C", "O", "H", "OXT"]
+            if rescode != 'PRO':
+                fill_in_atoms = ["N", "CA", "C", "O", "H1", "H2", "H3"]
+            else:
+                fill_in_atoms = ["N", "CA", "C", "O", "H1", "H2"]
         else:
-            fill_in_atoms = ["N", "CA", "C", "O", "H"]
+            # Proline middle residue
+            fill_in_atoms = ["N", "CA", "C", "O"]
+            if rescode != 'PRO': # Non-proline middle residue
+                fill_in_atoms.append("H")
+            if resid == len(residue_codes): # C terminal
+                fill_in_atoms.append("OXT")
+
         for atom in fill_in_atoms:
             data_array[row_num, col_record] = "ATOM"
             data_array[row_num, col_serial] = str(row_num + 1)
