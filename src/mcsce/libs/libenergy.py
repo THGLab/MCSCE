@@ -171,7 +171,7 @@ def prepare_energy_function(
     if gb_term:
         from mcsce.libs.libgb import create_atom_type_filters, init_gb_calculator
         atom_type_filters = create_atom_type_filters(atom_labels)
-        gb_calc = init_gb_calculator(atom_type_filters, charges_ij)
+        gb_calc = init_gb_calculator(atom_type_filters, charges_ij[None])
         energy_func_terms_rij.append(gb_calc)
         # log.info('prepared GB implicit solvent')
 
@@ -328,7 +328,7 @@ def create_Coulomb_params_raw(
     num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
     charges_ij = np.empty(num_ij_pairs, dtype=np.float64)
     multiply_upper_diagonal_raw(charges_i, charges_ij)
-    # charges_ij *= 0.25  # dielectic constant
+    charges_ij *= 0.25  # dielectic constant
     charges_ij *= 1389.35 # Coulomb's constant in unit of kJ.Angstrom/mol/e^2
 
     return charges_ij
@@ -338,7 +338,7 @@ def calc_vdw_radii_sum(atom_labels):
     Calculate the van der Waals radii sum for atom pairs as for checking whether there are structure clashes
     """
     atom_types = [a[0] for a in atom_labels]
-    vdw_radii = [vdW_radii_tsai_1999[a] for a in atom_types]
+    vdw_radii = np.array([vdW_radii_tsai_1999[a] for a in atom_types])
     num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
     vdw_radii_sum_ij = np.empty(num_ij_pairs, dtype=np.float64)
     sum_upper_diagonal_raw(vdw_radii, vdw_radii_sum_ij)

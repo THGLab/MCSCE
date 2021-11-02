@@ -412,7 +412,9 @@ class Structure:
         Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm
         """
         copied_structure = deepcopy(self)
-        retained_atoms_filter = [atom in backbone_atoms for atom in copied_structure.data_array[:, col_name]]
+        retained_atoms_filter = np.array([atom in backbone_atoms for atom in copied_structure.data_array[:, col_name]])
+        extra_pro_H_filter = (copied_structure.data_array[:, col_name] == 'H') & (copied_structure.data_array[:, col_resName] == 'PRO')
+        retained_atoms_filter = retained_atoms_filter & (~extra_pro_H_filter)
         copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
         return copied_structure
 
