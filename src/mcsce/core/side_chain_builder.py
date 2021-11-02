@@ -126,22 +126,23 @@ def create_side_chain_structure(inputs):
         # copy coordinates from the previous growing step to the current placeholder
         previous_coords = structure_coords
         # structure = deepcopy(sidechain_placeholders[idx])
-        template = sidechain_templates[resname]
-        sidechain_atom_idx = template[1]
+        template_struc, sidechain_atom_idx = sidechain_templates[resname]
         n_sidechain_atoms = len(sidechain_atom_idx)
         new_coords = sidechain_placeholders[idx + 1].coords
         new_coords[:-n_sidechain_atoms] = previous_coords
         structure_coords = new_coords
         # coords = structure.coords
+        residue_bb_coords = N_CA_C_coords[idx * 3: (idx + 1) * 3]
         if resname in ["GLY", "ALA"]:
-            # For glycine and alanine, no need for deciding the conformation
+            # For glycine and alanine, no degrees of freedom for bond rotations, so just move side chain to appropriate position
+            sc_conformation = place_sidechain_template(residue_bb_coords, template_struc.coords)
+            structure_coords[-n_sidechain_atoms:] = sc_conformation[sidechain_atom_idx]
             continue
         energy_func = energy_calculators[idx]
         # get all candidate conformations (rotamers) for this side chain
         candidiate_conformations, candidate_probs = _rotamer_library.retrieve_torsion_and_prob(resname, all_phi[idx], all_psi[idx])
         # perturb chi angles of the side chains by ~0.5 degrees
         candidiate_conformations += np.random.normal(scale=0.5, size=candidiate_conformations.shape)
-        residue_bb_coords = N_CA_C_coords[idx * 3: (idx + 1) * 3]
         energies = []
         
         all_coords = np.tile(structure_coords[None], (len(candidiate_conformations), 1, 1))
