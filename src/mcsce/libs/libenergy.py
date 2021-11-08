@@ -27,6 +27,7 @@ def prepare_energy_function(
         residue_numbers,
         residue_labels,
         forcefield,
+        batch_size=4,
         terms=None,
         angle_term=True,
         dihedral_term=True,
@@ -190,6 +191,7 @@ def prepare_energy_function(
         calc_all_vs_all_dists,
         energy_func_terms_rij,
         energy_func_terms_coords,
+        batch_size=batch_size,
         check_clash=clash_term,
         vdw_radii_sum=vdw_radii_sum
         )
@@ -530,7 +532,7 @@ def init_coulomb_calculator(charges_ij):
         return result
     return calculate
 
-def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=128, check_clash=False, vdw_radii_sum=None):
+def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=4, check_clash=False, vdw_radii_sum=None):
     """
     Calculate the sum of energy terms.
 

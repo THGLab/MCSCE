@@ -10,6 +10,7 @@ parser.add_argument("n_conf", type=int, help="Number of side-chain conformations
 parser.add_argument("-w", "--n_worker", type=int, default=None, help="Number of parallel workers for executing side chain building. When not specified, use all CPUs installed in the machine")
 parser.add_argument("-o", "--output_dir", default=None, help="The output position of generated PDB files. When not specified, it will be the name of the input file+'_mcsce'")
 parser.add_argument("-s", "--same_structure", action="store_true", default=False, help="When generating PDB files in a folder, whether each structure in the folder has the same amino acid sequence. When this is set to True, the energy function preparation will be done only once.")
+parser.add_argument("-b", "--batch_size", default=4, help="The batch size used for calculating energies for conformations. Consider decreasing batch size when encountered OOM in building.")
 parser.add_argument("-l", "--logfile", default="log.csv", help="File name of the log file")
 
 
@@ -29,7 +30,7 @@ def maincli():
     cli(parser, main)
 
 
-def main(input_structure, n_conf, n_worker, output_dir, logfile, same_structure=False):
+def main(input_structure, n_conf, n_worker, output_dir, logfile, batch_size=4, same_structure=False):
 
     # antipattern to save time
     from mcsce.core.side_chain_builder import initialize_func_calc, create_side_chain_ensemble
@@ -64,7 +65,8 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, same_structure=
         s = Structure(all_pdbs[0])
         s.build()
         s = s.remove_side_chains()
-        initialize_func_calc(partial(prepare_energy_function, forcefield=ff_obj, terms=["lj", "clash"]),
+        initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
+         forcefield=ff_obj, terms=["lj", "clash"]),
         structure=s)
     for f in all_pdbs:
         print("Now working on", f)
@@ -80,7 +82,8 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, same_structure=
         s = s.remove_side_chains()
 
         if not same_structure:
-            initialize_func_calc(partial(prepare_energy_function, forcefield=ff_obj, terms=["lj", "clash"]), structure=s)
+            initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
+             forcefield=ff_obj, terms=["lj", "clash"]), structure=s)
 
         conformations, success_indicator = create_side_chain_ensemble(
             s,
