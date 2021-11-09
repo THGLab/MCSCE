@@ -27,6 +27,7 @@ def prepare_energy_function(
         residue_numbers,
         residue_labels,
         forcefield,
+        batch_size=64,
         terms=None,
         angle_term=True,
         dihedral_term=True,
@@ -47,37 +48,44 @@ def prepare_energy_function(
         gb_term = "gb" in terms
         hpmf_term = "hpmf" in terms
 
-    # this mask identifies covalently bonded pairs and pairs two bonds apart
-    bonds_le_2_mask = create_bonds_apart_mask_for_ij_pairs(
+    residue_data = create_residue_data_dict(
         atom_labels,
         residue_numbers,
-        residue_labels,
+        residue_labels
+    )
+
+    N = len(atom_labels)
+
+    # this mask identifies covalently bonded pairs and pairs two bonds apart
+    bonds_le_2_mask = create_bonds_apart_mask_for_ij_pairs(
+        residue_data,
+        N,
         forcefield.bonds_le2_intra,
         bonds_le_2_inter,
         base_bool=False,
         )
 
+
     # this mask identifies pairs exactly 3 bonds apart
     bonds_exact_3_mask = create_bonds_apart_mask_for_ij_pairs(
-        atom_labels,
-        residue_numbers,
-        residue_labels,
+        residue_data,
+        N,
         forcefield.bonds_eq3_intra,
         bonds_equal_3_inter,
         )
 
+
     bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
-        atom_labels,
-        residue_numbers,
-        residue_labels,
+        residue_data,
+        N,
         forcefield.res_topology,
         bonds_equal_1_inter,
         base_bool=False,
         )
 
+
     bonds_2_mask = (bonds_le_2_mask.astype(int) - bonds_1_mask.astype(int)).astype(bool)
 
-    N = len(atom_labels)
     # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
 
     connectivity_matrix = np.zeros((N, N))
@@ -171,7 +179,7 @@ def prepare_energy_function(
     if gb_term:
         from mcsce.libs.libgb import create_atom_type_filters, init_gb_calculator
         atom_type_filters = create_atom_type_filters(atom_labels)
-        gb_calc = init_gb_calculator(atom_type_filters, charges_ij)
+        gb_calc = init_gb_calculator(atom_type_filters, charges_ij[None])
         energy_func_terms_rij.append(gb_calc)
         # log.info('prepared GB implicit solvent')
 
@@ -190,6 +198,7 @@ def prepare_energy_function(
         calc_all_vs_all_dists,
         energy_func_terms_rij,
         energy_func_terms_coords,
+        batch_size=batch_size,
         check_clash=clash_term,
         vdw_radii_sum=vdw_radii_sum
         )
@@ -200,7 +209,110 @@ def prepare_energy_function(
 ## Create parameters
 ########################
 
+def create_residue_data_dict(
+    atom_labels,
+    residue_numbers,
+    residue_labels
+    ):
+    """
+    Construct a residue dictionary in the format of 
+    {atom_num: {"label": residue_label, "atoms": {atom_label: idx}, "atom_order": [atom_label]}}
+    to be used for create_bonds_apart_mask_for_ij_pairs
+
+    Paramters
+    ---------
+    atom_labels : iterable, list or np.ndarray
+        The protein atom labels. Ex: ['N', 'CA, 'C', 'O', 'CB', ...]
+
+    residue_numbers : iterable, list or np.ndarray
+        The protein residue numbers per atom in `atom_labels`.
+        Ex: [1, 1, 1, 1, 1, 2, 2, 2, 2, ...]
+
+    residue_labels : iterable, list or np.ndarray
+        The protein residue labels per atom in `atom_labels`.
+        Ex: ['Met', 'Met', 'Met', ...]
+    """
+    residue_data = {}
+    for atom_label, residue_num, residue_label, idx in \
+         zip(atom_labels, residue_numbers, residue_labels, range(len(atom_labels))):
+        if residue_num not in residue_data:
+            residue_data[residue_num] = \
+                 {"label": residue_label, "atoms": {atom_label: idx}, "atom_order": [atom_label]}
+        else:
+            residue_data[residue_num]["atoms"][atom_label] = idx
+            residue_data[residue_num]["atom_order"].append(atom_label)
+    return residue_data
+
+def calc_upper_diagonal_idx_ij(i, j, n_total_atoms):
+    """
+    Return the index for the (i, j) pair in a flattened upper diagonal with n_total_atoms
+    sum_i(n-i)) + (j-i-1)
+    """
+    return i * n_total_atoms - i * (i + 1) // 2 + j - i - 1
+
 def create_bonds_apart_mask_for_ij_pairs(
+        residue_data,
+        n_total_atoms,
+        bonds_intra,
+        bonds_inter,
+        base_bool=False,
+        ):
+    """
+    Create bool mask array identifying the pairs X bonds apart in ij pairs.
+
+    Given `bonds_intra` and `bonds_inter` criteria, idenfities those ij
+    atom pairs in N*(N-1)/2 condition (upper all vs all diagonal) that
+    agree with the described bonds.
+
+    Inter residue bonds are only considered for consecutive residues.
+
+    Rewritten from from IDP Conformer Generator package
+     (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) 
+     developed by Joao M. C. Teixeira to improve efficiency
+
+    Paramters
+    ---------
+    residue_data: dictionary
+        An prepared dictionary from create_residue_data_dict that contains information
+        about residues, atoms in each residue and their indices
+
+    n_total_atoms: int
+        number of total atoms in the structure
+    """
+    
+    # Create default bond mask array
+    num_ij_pairs = n_total_atoms * (n_total_atoms - 1) // 2
+    other_bool = not base_bool
+    bonds_mask = np.full(num_ij_pairs, base_bool)
+
+    for res_num in residue_data:
+        current_residue_data = residue_data[res_num]
+        res_label = current_residue_data["label"]
+        # intra-residue connectivities
+        for i in range(len(current_residue_data["atom_order"]) - 1):
+            for j in range(i + 1, len(current_residue_data["atom_order"])):
+                i_atom_name = current_residue_data["atom_order"][i]
+                j_atom_name = current_residue_data["atom_order"][j]
+                if j_atom_name in bonds_intra[res_label][i_atom_name]:
+                    # atoms i and j are connected
+                    bonds_mask[calc_upper_diagonal_idx_ij(current_residue_data["atoms"][i_atom_name],
+                                                          current_residue_data["atoms"][j_atom_name],
+                                                          n_total_atoms)] = other_bool
+        
+        # inter-residue connectivities
+        if res_num + 1 in residue_data:
+            for i_name in bonds_inter:
+                for j_name in bonds_inter[i_name]:
+                    if i_name in current_residue_data["atoms"] and j_name in residue_data[res_num + 1]["atoms"]:
+                        bonds_mask[calc_upper_diagonal_idx_ij(current_residue_data["atoms"][i_name],
+                                                            residue_data[res_num + 1]["atoms"][j_name],
+                                                            n_total_atoms)] = other_bool
+    
+    return bonds_mask
+
+
+
+def create_bonds_apart_mask_for_ij_pairs_old(
         atom_labels,
         residue_numbers,
         residue_labels,
@@ -328,7 +440,7 @@ def create_Coulomb_params_raw(
     num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
     charges_ij = np.empty(num_ij_pairs, dtype=np.float64)
     multiply_upper_diagonal_raw(charges_i, charges_ij)
-    # charges_ij *= 0.25  # dielectic constant
+    charges_ij *= 0.25  # dielectic constant
     charges_ij *= 1389.35 # Coulomb's constant in unit of kJ.Angstrom/mol/e^2
 
     return charges_ij
@@ -338,7 +450,7 @@ def calc_vdw_radii_sum(atom_labels):
     Calculate the van der Waals radii sum for atom pairs as for checking whether there are structure clashes
     """
     atom_types = [a[0] for a in atom_labels]
-    vdw_radii = [vdW_radii_tsai_1999[a] for a in atom_types]
+    vdw_radii = np.array([vdW_radii_tsai_1999[a] for a in atom_types])
     num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
     vdw_radii_sum_ij = np.empty(num_ij_pairs, dtype=np.float64)
     sum_upper_diagonal_raw(vdw_radii, vdw_radii_sum_ij)
@@ -530,7 +642,7 @@ def init_coulomb_calculator(charges_ij):
         return result
     return calculate
 
-def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=128, check_clash=False, vdw_radii_sum=None):
+def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=64, check_clash=False, vdw_radii_sum=None):
     """
     Calculate the sum of energy terms.
 
@@ -592,27 +704,26 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=128, check_
     def calculate(coords):
         if len(coords.shape) == 2:
             coords = coords[None] # make sure the first axis is the batch axis
-        dist_ij = distf(coords)
-        energies = np.empty(len(coords))
-        if check_clash:
-            clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
-            energies[clash_filter] = np.inf
-            dist_ij_noclash = dist_ij[~clash_filter]
-            del dist_ij   # release memory to prevent OOM during parallel execution
-            coords_noclash = coords[~clash_filter]
-        else:
-            clash_filter = np.zeros(len(coords)).astype(bool)
-            dist_ij_noclash = dist_ij
-            coords_noclash = coords
-        energies_noclash = np.zeros(len(dist_ij_noclash))
-        for i in range(math.ceil(len(energies_noclash) / batch_size)):
+        energies = np.zeros(len(coords))
+        all_indices = np.arange(len(coords))
+        for i in range(math.ceil(len(coords) / batch_size)):
+            # Handle calculations in batches to save memory
             batch_idx_start = i * batch_size
             batch_idx_end = (i + 1) * batch_size
+            dist_ij = distf(coords[batch_idx_start: batch_idx_end])
+            batch_indices = all_indices[batch_idx_start: batch_idx_end]
+            if check_clash:
+                clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
+            else:
+                clash_filter = np.zeros(len(batch_indices)).astype(bool)
+            energies[batch_indices[clash_filter]] = np.inf
+            dist_ij_noclash = dist_ij[~clash_filter]
+            # For those conformations without clashes, calculate their energies
             for func in efuncs_rij:
-                energies_noclash[batch_idx_start: batch_idx_end] += func(dist_ij_noclash[batch_idx_start: batch_idx_end])
+                energies[batch_indices[~clash_filter]] += func(dist_ij_noclash)
             for func in efuncs_coords:
-                energies_noclash[batch_idx_start: batch_idx_end] += func(coords_noclash[batch_idx_start: batch_idx_end])
-        energies[~clash_filter] = energies_noclash
+                energies[batch_indices[~clash_filter]] += func(coords[batch_indices[~clash_filter]])
+            del dist_ij   # release memory to prevent OOM during parallel execution
         return energies
     return calculate
 

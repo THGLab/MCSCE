@@ -9,7 +9,9 @@ parser.add_argument("input_structure", help="A single PDB file for the backbone 
 parser.add_argument("n_conf", type=int, help="Number of side-chain conformations to generate (regardless of whether or not succeeded) for each given input backbone structure")
 parser.add_argument("-w", "--n_worker", type=int, default=None, help="Number of parallel workers for executing side chain building. When not specified, use all CPUs installed in the machine")
 parser.add_argument("-o", "--output_dir", default=None, help="The output position of generated PDB files. When not specified, it will be the name of the input file+'_mcsce'")
-parser.add_argument("-l", "--logfile", default="log.csv", help="The log file save position")
+parser.add_argument("-s", "--same_structure", action="store_true", default=False, help="When generating PDB files in a folder, whether each structure in the folder has the same amino acid sequence. When this is set to True, the energy function preparation will be done only once.")
+parser.add_argument("-b", "--batch_size", default=64, type=int, help="The batch size used for calculating energies for conformations. Consider decreasing batch size when encountered OOM in building.")
+parser.add_argument("-l", "--logfile", default="log.csv", help="File name of the log file")
 
 
 def load_args(parser):
@@ -28,10 +30,10 @@ def maincli():
     cli(parser, main)
 
 
-def main(input_structure, n_conf, n_worker, output_dir, logfile):
+def main(input_structure, n_conf, n_worker, output_dir, logfile, batch_size=4, same_structure=False):
 
     # antipattern to save time
-    from mcsce.core.side_chain_builder import create_side_chain_ensemble
+    from mcsce.core.side_chain_builder import initialize_func_calc, create_side_chain_ensemble
     from mcsce.core.build_definitions import forcefields
     from mcsce.libs.libenergy import prepare_energy_function
     from mcsce.libs.libstructure import Structure
@@ -58,6 +60,14 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
             input_folder += "/"
         all_pdbs = [input_folder + f for f in os.listdir(input_folder) if f[-3:].upper() == "PDB"]
 
+    if same_structure:
+        # Assume all structures in a folder are the same: the energy creation step can be done only once
+        s = Structure(all_pdbs[0])
+        s.build()
+        s = s.remove_side_chains()
+        initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
+         forcefield=ff_obj, terms=["lj", "clash"]),
+        structure=s)
     for f in all_pdbs:
         print("Now working on", f)
         t0 = datetime.now()
@@ -71,10 +81,13 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile):
         s.build()
         s = s.remove_side_chains()
 
+        if not same_structure:
+            initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
+             forcefield=ff_obj, terms=["lj", "clash"]), structure=s)
+
         conformations, success_indicator = create_side_chain_ensemble(
             s,
             n_conf,
-            partial(prepare_energy_function, forcefield=ff_obj, terms=["lj", "clash"]),
             temperature=300,
             save_path=output_dir,
             parallel_worker=n_worker,
