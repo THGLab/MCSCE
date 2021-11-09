@@ -27,7 +27,7 @@ def prepare_energy_function(
         residue_numbers,
         residue_labels,
         forcefield,
-        batch_size=4,
+        batch_size=64,
         terms=None,
         angle_term=True,
         dihedral_term=True,
@@ -642,7 +642,7 @@ def init_coulomb_calculator(charges_ij):
         return result
     return calculate
 
-def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=4, check_clash=False, vdw_radii_sum=None):
+def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=64, check_clash=False, vdw_radii_sum=None):
     """
     Calculate the sum of energy terms.
 
@@ -704,27 +704,26 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=4, check_cl
     def calculate(coords):
         if len(coords.shape) == 2:
             coords = coords[None] # make sure the first axis is the batch axis
-        dist_ij = distf(coords)
-        energies = np.empty(len(coords))
-        if check_clash:
-            clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
-            energies[clash_filter] = np.inf
-            dist_ij_noclash = dist_ij[~clash_filter]
-            del dist_ij   # release memory to prevent OOM during parallel execution
-            coords_noclash = coords[~clash_filter]
-        else:
-            clash_filter = np.zeros(len(coords)).astype(bool)
-            dist_ij_noclash = dist_ij
-            coords_noclash = coords
-        energies_noclash = np.zeros(len(dist_ij_noclash))
-        for i in range(math.ceil(len(energies_noclash) / batch_size)):
+        energies = np.zeros(len(coords))
+        all_indices = np.arange(len(coords))
+        for i in range(math.ceil(len(coords) / batch_size)):
+            # Handle calculations in batches to save memory
             batch_idx_start = i * batch_size
             batch_idx_end = (i + 1) * batch_size
+            dist_ij = distf(coords[batch_idx_start: batch_idx_end])
+            batch_indices = all_indices[batch_idx_start: batch_idx_end]
+            if check_clash:
+                clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
+            else:
+                clash_filter = np.zeros(len(batch_indices)).astype(bool)
+            energies[batch_indices[clash_filter]] = np.inf
+            dist_ij_noclash = dist_ij[~clash_filter]
+            # For those conformations without clashes, calculate their energies
             for func in efuncs_rij:
-                energies_noclash[batch_idx_start: batch_idx_end] += func(dist_ij_noclash[batch_idx_start: batch_idx_end])
+                energies[batch_indices[~clash_filter]] += func(dist_ij_noclash)
             for func in efuncs_coords:
-                energies_noclash[batch_idx_start: batch_idx_end] += func(coords_noclash[batch_idx_start: batch_idx_end])
-        energies[~clash_filter] = energies_noclash
+                energies[batch_indices[~clash_filter]] += func(coords[batch_indices[~clash_filter]])
+            del dist_ij   # release memory to prevent OOM during parallel execution
         return energies
     return calculate
 

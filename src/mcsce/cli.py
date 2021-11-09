@@ -10,7 +10,7 @@ parser.add_argument("n_conf", type=int, help="Number of side-chain conformations
 parser.add_argument("-w", "--n_worker", type=int, default=None, help="Number of parallel workers for executing side chain building. When not specified, use all CPUs installed in the machine")
 parser.add_argument("-o", "--output_dir", default=None, help="The output position of generated PDB files. When not specified, it will be the name of the input file+'_mcsce'")
 parser.add_argument("-s", "--same_structure", action="store_true", default=False, help="When generating PDB files in a folder, whether each structure in the folder has the same amino acid sequence. When this is set to True, the energy function preparation will be done only once.")
-parser.add_argument("-b", "--batch_size", default=4, type=int, help="The batch size used for calculating energies for conformations. Consider decreasing batch size when encountered OOM in building.")
+parser.add_argument("-b", "--batch_size", default=64, type=int, help="The batch size used for calculating energies for conformations. Consider decreasing batch size when encountered OOM in building.")
 parser.add_argument("-l", "--logfile", default="log.csv", help="File name of the log file")
 
 
