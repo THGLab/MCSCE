@@ -8,9 +8,11 @@ MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
 Modifications herein are of MCSCE authors.
 """
 # from mcsce import log
+from datetime import datetime
 import numpy as np
+import numba as nb
 import math
-from numba import njit
+from numba import jit
 
 from mcsce.core.definitions import vdW_radii_tsai_1999
 from mcsce.core.build_definitions import (
@@ -27,7 +29,7 @@ def prepare_energy_function(
         residue_numbers,
         residue_labels,
         forcefield,
-        batch_size=64,
+        batch_size=16,
         terms=None,
         angle_term=True,
         dihedral_term=True,
@@ -597,8 +599,9 @@ def init_lennard_jones_calculator(acoeff, bcoeff):
     -------
     Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
-    @njit
-    def calc_lennard_jones(distances_ij, NANSUM=np.nansum):
+    @jit(nb.float64[:](nb.float64[:,:]), nopython=True, nogil=True)
+    def calc_lennard_jones(distances_ij):
+        NANSUM = np.nansum
         ar = acoeff / (distances_ij ** 12)
         br = bcoeff / (distances_ij ** 6)
         energy_ij = ar - br
@@ -633,8 +636,9 @@ def init_coulomb_calculator(charges_ij):
     -------
     Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira
     """
-    @njit
-    def calculate(distances_ij, NANSUM=np.nansum):
+    @jit(nb.float64[:](nb.float64[:,:]), nopython=True, nogil=True)
+    def calculate(distances_ij):
+        NANSUM = np.nansum
         energy_ij = charges_ij / distances_ij
         result = np.empty(distances_ij.shape[0])
         for i in range(distances_ij.shape[0]):
@@ -642,7 +646,7 @@ def init_coulomb_calculator(charges_ij):
         return result
     return calculate
 
-def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=64, check_clash=False, vdw_radii_sum=None):
+def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=16, check_clash=False, vdw_radii_sum=None):
     """
     Calculate the sum of energy terms.
 
