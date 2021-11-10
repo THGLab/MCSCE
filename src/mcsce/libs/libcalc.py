@@ -7,9 +7,10 @@ developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
 MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
 """
 import numpy as np
-from numba import njit
+import numba as nb
+from numba import jit
 
-@njit
+@jit(nb.float64[:,:](nb.float32[:,:,:]), nopython=True, nogil=True)
 def calc_all_vs_all_dists(coords):
     """
     Calculate the upper half of all vs. all distances for a batch.
@@ -43,7 +44,7 @@ def calc_all_vs_all_dists(coords):
 
     return results
 
-@njit
+@jit(nopython=True, nogil=True)
 def sum_upper_diagonal_raw(data, result):
     """
     Calculate outer sum for upper diagonal with for loops.
@@ -78,7 +79,7 @@ def sum_upper_diagonal_raw(data, result):
     # assert abs(result[-1] - (data[-2] + data[-1])) < 0.0000001
     return
 
-@njit
+@jit(nb.void(nb.float64[:],nb.float64[:]), nopython=True, nogil=True)
 def multiply_upper_diagonal_raw(data, result):
     """
     Calculate the upper diagonal multiplication with for loops.
@@ -109,7 +110,7 @@ def multiply_upper_diagonal_raw(data, result):
             c += 1
 
 
-@njit
+@jit(nopython=True, nogil=True)
 def calc_angle_coords(
         coords,
         ARCCOS=np.arccos,
@@ -123,7 +124,7 @@ def calc_angle_coords(
     return calc_angle(v1, v2)
 
 
-@njit
+@jit(nopython=True, nogil=True)
 def calc_angle(
         v1, v2,
         ARCCOS=np.arccos,
@@ -249,7 +250,7 @@ def calc_torsion_angles(
     # torsion angles
     return -ARCTAN2(sin_theta, cos_theta)
 
-@njit
+@jit(nopython=True, nogil=True)
 def norm_along_last_axis(array):
     # calculate norm along the last axis and keep the dimension
     original_shape = array.shape
@@ -259,7 +260,7 @@ def norm_along_last_axis(array):
         result[i] = np.sum(flattened_to_last_axis[i] ** 2) ** (1/2)
     return result.reshape(original_shape[: -1] + (1, ))
 
-@njit
+@jit(nopython=True, nogil=True)
 def dot_along_last_axis(array1, array2):
     # dot product along the last axis and keep the dimension
     result = np.empty(len(array1))
@@ -267,7 +268,7 @@ def dot_along_last_axis(array1, array2):
         result[i] = np.dot(array1[i], array2[i])
     return result
 
-@njit
+@jit(nopython=True, nogil=True)
 def calc_proper_torsions(coords):  
     """
     A vectorized and jitted version for calculating a set of proper torsion angle values
@@ -301,7 +302,7 @@ def calc_proper_torsions(coords):
 def calc_improper_torsion_angles():
     pass
 
-@njit
+@jit(nopython=True, nogil=True)
 def hamiltonian_multiplication_Q(a1, b1, c1, d1, a2, b2, c2, d2):
     """Hamiltonian Multiplication."""
     return (
@@ -311,7 +312,7 @@ def hamiltonian_multiplication_Q(a1, b1, c1, d1, a2, b2, c2, d2):
         (a1 * d2) + (b1 * c2) - (c1 * b2) + (d1 * a2),
         )
 
-@njit
+@jit(nopython=True, nogil=True)
 def rotate_coordinates_Q(
         coords,
         rot_vec,
@@ -362,7 +363,7 @@ def rotate_coordinates_Q(
     assert rotated.shape[1] == 3
     return rotated
 
-@njit
+@jit(nopython=True, nogil=True)
 def place_sidechain_template(
         bb_cnf,
         ss_template,

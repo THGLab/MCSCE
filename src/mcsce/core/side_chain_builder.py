@@ -9,7 +9,8 @@ Date created: Jul 29, 2021
 """
 
 import numpy as np
-from numba import njit
+import numba as nb
+from numba import jit, njit
 
 from mcsce.core.rotamer_library import DunbrakRotamerLibrary
 from mcsce.core.definitions import aa3to1
@@ -28,13 +29,14 @@ _rotamer_library = DunbrakRotamerLibrary()
 sidechain_placeholders = []
 energy_calculators = []
 
-@njit
+@jit(nb.int32(nb.float64[:]), nopython=True, nogil=True)
 def choose_random(array):
     cumulative = [np.sum(array[:i + 1]) for i in range(len(array))]
     pointer = np.random.random() * cumulative[-1]
     for idx, num in enumerate(cumulative):
         if num > pointer:
             return idx
+    return len(array) - 1
 
 def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
     """
