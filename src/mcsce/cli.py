@@ -80,6 +80,12 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, batch_size=4, s
         s = Structure(f)
         s.build()
         s = s.remove_side_chains()
+        missing_backbone_atoms = s.check_backbone_atom_completeness()
+        if len(missing_backbone_atoms) > 0:
+            print("WARNING! These atoms are missing from the current backbone structure:")
+            for resid, atom_name in missing_backbone_atoms:
+                print(f"{resid} {atom_name}")
+        
 
         if not same_structure:
             initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
