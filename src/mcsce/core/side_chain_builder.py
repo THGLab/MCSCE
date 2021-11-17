@@ -72,14 +72,21 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
         aa_seq = structure.residue_types
     structure = deepcopy(structure)
     sidechain_placeholders.append(deepcopy(structure))
+    energy_calculators.append(efunc_creator(structure.atom_labels, 
+                                            structure.res_nums,
+                                            structure.res_labels))
     for idx, resname in tqdm(enumerate(aa_seq), total=len(aa_seq)):
         template = sidechain_templates[resname]
         structure.add_side_chain(idx + 1, template)
         sidechain_placeholders.append(deepcopy(structure))
         if resname not in ["GLY", "ALA"]:
+            n_sidechain_atoms = len(template[1])
+            all_indices = np.arange(len(structure.atom_labels))
             energy_func = efunc_creator(structure.atom_labels, 
                                         structure.res_nums,
-                                        structure.res_labels)
+                                        structure.res_labels,
+                                        partial_indices=[all_indices[-n_sidechain_atoms:],
+                                                         all_indices[:-n_sidechain_atoms]])
             energy_calculators.append(energy_func)
         else:
             energy_calculators.append(None)
@@ -124,6 +131,7 @@ def create_side_chain_structure(inputs):
     all_phi = np.concatenate([[np.nan], all_backbone_dihedrals[2::3]]) * 180 / np.pi
     all_psi = np.concatenate([all_backbone_dihedrals[::3], [np.nan]]) * 180 / np.pi
     structure_coords = backbone_coords
+    accumulated_energy = energy_calculators[0](structure_coords[None], structure_coords[None, :0])[0] # energies of backbone only
     for idx, resname in enumerate(structure.residue_types):
         # copy coordinates from the previous growing step to the current placeholder
         previous_coords = structure_coords
@@ -140,11 +148,12 @@ def create_side_chain_structure(inputs):
             sc_conformation = place_sidechain_template(residue_bb_coords, template_struc.coords)
             structure_coords[-n_sidechain_atoms:] = sc_conformation[sidechain_atom_idx]
             continue
-        energy_func = energy_calculators[idx]
+        energy_func = energy_calculators[idx + 1]
         # get all candidate conformations (rotamers) for this side chain
         candidiate_conformations, candidate_probs = _rotamer_library.retrieve_torsion_and_prob(resname, all_phi[idx], all_psi[idx])
         # perturb chi angles of the side chains by ~0.5 degrees
         candidiate_conformations += np.random.normal(scale=0.5, size=candidiate_conformations.shape)
+        
         energies = []
         
         all_coords = np.tile(structure_coords[None], (len(candidiate_conformations), 1, 1))
@@ -153,9 +162,10 @@ def create_side_chain_structure(inputs):
             sidechain_with_specific_chi = rotate_sidechain(resname, tors)  # THIS STEP MIGHT BE SLOW
             sc_conformation = place_sidechain_template(residue_bb_coords, sidechain_with_specific_chi[0])
             all_coords[tor_idx, -n_sidechain_atoms:] = sc_conformation[sidechain_atom_idx]
-        energies = energy_func(all_coords)
+        energies = energy_func(all_coords[:, -n_sidechain_atoms:], all_coords[:, : -n_sidechain_atoms])
         minimum_energy = min(energies)  # Keep track of the minimum energy so that the renormalized energies can be converted back
         
+        # print(idx, resname, len(candidate_probs), (~np.isinf(energies)).sum())
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             return None, False, None, None
@@ -167,7 +177,7 @@ def create_side_chain_structure(inputs):
 
         # set the coordinates of the actual structure that has side chain for this residue grown
         structure_coords = all_coords[selected_idx]
-        energy = energies[selected_idx] + minimum_energy # The raw energy to be returned
+        accumulated_energy += energies[selected_idx] + minimum_energy # The raw energy for this step
 
     # all side chains have been created, then reorder all atoms and return the final structure
     structure = deepcopy(sidechain_placeholders[-1])
@@ -175,7 +185,7 @@ def create_side_chain_structure(inputs):
     structure.reorder_with_resnum()
     if save_addr is not None:
         structure.write_PDB(save_addr)
-    return structure, True, energy, save_addr
+    return structure, True, accumulated_energy, save_addr
 
 def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_worker=16, return_first_valid=False):
     """

@@ -15,6 +15,7 @@ from itertools import product
 from functools import partial
 from pathlib import Path as Path_
 
+import numpy as np
 from numba import njit
 
 from mcsce import Path
@@ -461,7 +462,7 @@ def extract_ff_params_for_seq(
     #     'The N terminal residue was never computed. It should have.'
 
     assert isinstance(params_l, list)
-    return params_l
+    return np.array(params_l)
 
 
 get_trimer_seq_njit = njit(get_trimer_seq)

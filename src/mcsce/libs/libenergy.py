@@ -8,7 +8,7 @@ MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
 Modifications herein are of MCSCE authors.
 """
 # from mcsce import log
-from datetime import datetime
+from functools import partial
 import numpy as np
 import numba as nb
 import math
@@ -30,6 +30,7 @@ def prepare_energy_function(
         residue_labels,
         forcefield,
         batch_size=16,
+        partial_indices=None,
         terms=None,
         angle_term=True,
         dihedral_term=True,
@@ -40,7 +41,22 @@ def prepare_energy_function(
         hpmf_term=True
         ):
     """Adapted from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+    N = len(atom_labels)
     # Decide calculation terms from provided terms list
+    if partial_indices is None:
+        new_indices = np.arange(len(atom_labels))
+        old_indices = np.array([], dtype=int)
+    else:
+        new_indices, old_indices = partial_indices
+    # Formulate the order in upper diagonal array so as to filter the bond masks
+    order_in_upper_diagonal = []
+    for i in range(len(new_indices) - 1):
+        for j in range(i + 1, len(new_indices)):
+            order_in_upper_diagonal.append(calc_upper_diagonal_idx_ij(new_indices[i], new_indices[j], N))
+    for i in new_indices:
+        for j in old_indices:
+            order_in_upper_diagonal.append(calc_upper_diagonal_idx_ij(j, i, N))
+
     if terms is not None:
         angle_term = "angle" in terms
         dihedral_term = "dihedral" in terms
@@ -56,7 +72,6 @@ def prepare_energy_function(
         residue_labels
     )
 
-    N = len(atom_labels)
 
     # this mask identifies covalently bonded pairs and pairs two bonds apart
     bonds_le_2_mask = create_bonds_apart_mask_for_ij_pairs(
@@ -65,7 +80,7 @@ def prepare_energy_function(
         forcefield.bonds_le2_intra,
         bonds_le_2_inter,
         base_bool=False,
-        )
+        )[order_in_upper_diagonal]
 
 
     # this mask identifies pairs exactly 3 bonds apart
@@ -74,7 +89,7 @@ def prepare_energy_function(
         N,
         forcefield.bonds_eq3_intra,
         bonds_equal_3_inter,
-        )
+        )[order_in_upper_diagonal]
 
 
     bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
@@ -83,17 +98,17 @@ def prepare_energy_function(
         forcefield.res_topology,
         bonds_equal_1_inter,
         base_bool=False,
-        )
+        )[order_in_upper_diagonal]
 
 
     bonds_2_mask = (bonds_le_2_mask.astype(int) - bonds_1_mask.astype(int)).astype(bool)
 
     # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
 
-    connectivity_matrix = np.zeros((N, N))
-    connectivity_matrix[np.triu_indices(N, k=1)] = bonds_1_mask  # TODO: change to bonds_1_mask
-    # The lower triangle can be mirrored from the upper triangle
-    connectivity_matrix += connectivity_matrix.T
+    # connectivity_matrix = np.zeros((N, N))
+    # connectivity_matrix[np.triu_indices(N, k=1)] = bonds_1_mask  # TODO: change to bonds_1_mask
+    # # The lower triangle can be mirrored from the upper triangle
+    # connectivity_matrix += connectivity_matrix.T
     # /
     # assemble energy function
     energy_func_terms_rij = [] # terms that are calculated from the pairwise distances of atoms
@@ -131,7 +146,7 @@ def prepare_energy_function(
         # log.info('prepared dihedral')
 
     if clash_term:
-        vdw_radii_sum = calc_vdw_radii_sum(atom_labels)
+        vdw_radii_sum = calc_vdw_radii_sum(atom_labels[new_indices], atom_labels[old_indices])
         vdw_radii_sum *= 0.6 # The clash check parameter as defined in the SI of the MCSCE paper
         vdw_radii_sum[bonds_1_mask] = 0
         vdw_radii_sum = vdw_radii_sum[None]
@@ -144,6 +159,8 @@ def prepare_energy_function(
             atom_labels,
             residue_numbers,
             residue_labels,
+            new_indices,
+            old_indices,
             forcefield.forcefield,
             )
 
@@ -166,6 +183,8 @@ def prepare_energy_function(
             atom_labels,
             residue_numbers,
             residue_labels,
+            new_indices,
+            old_indices,
             forcefield.forcefield,
             )
 
@@ -197,7 +216,7 @@ def prepare_energy_function(
 
     # in case there are iji terms, I need to add here another layer
     calc_energy = energycalculator_ij(
-        calc_all_vs_all_dists,
+        calc_new_vs_old_dists,
         energy_func_terms_rij,
         energy_func_terms_coords,
         batch_size=batch_size,
@@ -249,6 +268,10 @@ def calc_upper_diagonal_idx_ij(i, j, n_total_atoms):
     """
     Return the index for the (i, j) pair in a flattened upper diagonal with n_total_atoms
     sum_i(n-i)) + (j-i-1)
+
+    Requirement
+    --------------------
+    i < j < n_total_atoms
     """
     return i * n_total_atoms - i * (i + 1) // 2 + j - i - 1
 
@@ -378,37 +401,53 @@ def create_LJ_params_raw(
         atom_labels,
         residue_numbers,
         residue_labels,
+        new_indices,
+        old_indices,
         force_field,
         ):
     """Create ACOEFF and BCOEFF parameters.
     Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
-    sigmas_ii = extract_ff_params_for_seq(
-        atom_labels,
-        residue_numbers,
-        residue_labels,
+    sigmas_ii_new = extract_ff_params_for_seq(
+        atom_labels[new_indices],
+        residue_numbers[new_indices],
+        residue_labels[new_indices],
         force_field,
         'sigma',
         )
 
-    epsilons_ii = extract_ff_params_for_seq(
-        atom_labels,
-        residue_numbers,
-        residue_labels,
+    sigmas_ii_old = extract_ff_params_for_seq(
+        atom_labels[old_indices],
+        residue_numbers[old_indices],
+        residue_labels[old_indices],
+        force_field,
+        'sigma',
+        )
+
+    epsilons_ii_new = extract_ff_params_for_seq(
+        atom_labels[new_indices],
+        residue_numbers[new_indices],
+        residue_labels[new_indices],
         force_field,
         'epsilon',
         )
 
-    num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
+    epsilons_ii_old = extract_ff_params_for_seq(
+        atom_labels[old_indices],
+        residue_numbers[old_indices],
+        residue_labels[old_indices],
+        force_field,
+        'epsilon',
+        )
+
+    num_ij_pairs = len(new_indices) * (len(new_indices) - 1) // 2 + len(new_indices) * len(old_indices)
     # sigmas
     sigmas_ij_pre = np.empty(num_ij_pairs, dtype=np.float64)
-    sum_upper_diagonal_raw(np.array(sigmas_ii), sigmas_ij_pre)
+    sum_partial_upper_diagonal(sigmas_ii_new, sigmas_ii_old, sigmas_ij_pre)
+
     #
     # epsilons
     epsilons_ij_pre = np.empty(num_ij_pairs, dtype=np.float64)
-    multiply_upper_diagonal_raw(
-        np.array(epsilons_ii),
-        epsilons_ij_pre,
-        )
+    multiply_partial_upper_diagonal(epsilons_ii_new, epsilons_ii_old, epsilons_ij_pre)
     #
 
     # mixing rules
@@ -428,34 +467,46 @@ def create_Coulomb_params_raw(
         atom_labels,
         residue_numbers,
         residue_labels,
+        new_indices,
+        old_indices,
         force_field,
         ):
     """Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
-    charges_i = extract_ff_params_for_seq(
-        atom_labels,
-        residue_numbers,
-        residue_labels,
+    charges_i_new = extract_ff_params_for_seq(
+        atom_labels[new_indices],
+        residue_numbers[new_indices],
+        residue_labels[new_indices],
         force_field,
         'charge',
         )
 
-    num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
+    charges_i_old = extract_ff_params_for_seq(
+        atom_labels[old_indices],
+        residue_numbers[old_indices],
+        residue_labels[old_indices],
+        force_field,
+        'charge',
+        )
+
+    num_ij_pairs = len(new_indices) * (len(new_indices) - 1) // 2 + len(new_indices) * len(old_indices)
     charges_ij = np.empty(num_ij_pairs, dtype=np.float64)
-    multiply_upper_diagonal_raw(charges_i, charges_ij)
+    multiply_partial_upper_diagonal(charges_i_new, charges_i_old, charges_ij)
     charges_ij *= 0.25  # dielectic constant
     charges_ij *= 1389.35 # Coulomb's constant in unit of kJ.Angstrom/mol/e^2
 
     return charges_ij
 
-def calc_vdw_radii_sum(atom_labels):
+def calc_vdw_radii_sum(atom_labels_new, atom_labels_old):
     """
     Calculate the van der Waals radii sum for atom pairs as for checking whether there are structure clashes
     """
-    atom_types = [a[0] for a in atom_labels]
-    vdw_radii = np.array([vdW_radii_tsai_1999[a] for a in atom_types])
-    num_ij_pairs = len(atom_labels) * (len(atom_labels) - 1) // 2
-    vdw_radii_sum_ij = np.empty(num_ij_pairs, dtype=np.float64)
-    sum_upper_diagonal_raw(vdw_radii, vdw_radii_sum_ij)
+    atom_types_new = [a[0] for a in atom_labels_new]
+    atom_types_old = [a[0] for a in atom_labels_old]
+    vdw_radii_new = np.array([vdW_radii_tsai_1999[a] for a in atom_types_new])
+    vdw_radii_old = np.array([vdW_radii_tsai_1999[a] for a in atom_types_old])
+    num_pairs = len(atom_labels_new) * (len(atom_labels_new) - 1) // 2 + len(atom_labels_new) * len(atom_labels_old)
+    vdw_radii_sum_ij = np.empty(num_pairs, dtype=np.float64)
+    sum_partial_upper_diagonal(vdw_radii_new, vdw_radii_old, vdw_radii_sum_ij)
     return vdw_radii_sum_ij
 
 ############################
@@ -705,16 +756,16 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=16, check_c
     -------
     Adapted from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira, but added support for energy calculators that takes raw coordinates as input
     """
-    def calculate(coords):
-        if len(coords.shape) == 2:
-            coords = coords[None] # make sure the first axis is the batch axis
-        energies = np.zeros(len(coords))
-        all_indices = np.arange(len(coords))
-        for i in range(math.ceil(len(coords) / batch_size)):
+    def calculate(coords_new, coords_old):
+        assert len(coords_new.shape) == 3
+
+        energies = np.zeros(len(coords_new))
+        all_indices = np.arange(len(coords_new))
+        for i in range(math.ceil(len(coords_new) / batch_size)):
             # Handle calculations in batches to save memory
             batch_idx_start = i * batch_size
             batch_idx_end = (i + 1) * batch_size
-            dist_ij = distf(coords[batch_idx_start: batch_idx_end])
+            dist_ij = distf(coords_new[batch_idx_start: batch_idx_end], coords_old[batch_idx_start: batch_idx_end])
             batch_indices = all_indices[batch_idx_start: batch_idx_end]
             if check_clash:
                 clash_filter = (dist_ij < vdw_radii_sum).any(axis=1)
@@ -726,7 +777,8 @@ def energycalculator_ij(distf, efuncs_rij, efuncs_coords, batch_size=16, check_c
             for func in efuncs_rij:
                 energies[batch_indices[~clash_filter]] += func(dist_ij_noclash)
             for func in efuncs_coords:
-                energies[batch_indices[~clash_filter]] += func(coords[batch_indices[~clash_filter]])
+                energies[batch_indices[~clash_filter]] += func(coords_new[batch_indices[~clash_filter]], \
+                    coords_old[batch_indices[~clash_filter]])
             del dist_ij   # release memory to prevent OOM during parallel execution
         return energies
     return calculate
