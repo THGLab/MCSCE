@@ -55,7 +55,8 @@ def prepare_energy_function(
             order_in_upper_diagonal.append(calc_upper_diagonal_idx_ij(new_indices[i], new_indices[j], N))
     for i in new_indices:
         for j in old_indices:
-            order_in_upper_diagonal.append(calc_upper_diagonal_idx_ij(j, i, N))
+            # make sure the first argument is smaller than the second argument
+            order_in_upper_diagonal.append(calc_upper_diagonal_idx_ij(min(i, j), max(i, j), N))
 
     if terms is not None:
         angle_term = "angle" in terms
@@ -163,7 +164,7 @@ def prepare_energy_function(
             old_indices,
             forcefield.forcefield,
             )
-
+            
         # 0.2 as 0.4
         _lj14scale = float(forcefield.forcefield['lj14scale'])
         acoeff[bonds_exact_3_mask] *= _lj14scale * 0.2
@@ -273,6 +274,8 @@ def calc_upper_diagonal_idx_ij(i, j, n_total_atoms):
     --------------------
     i < j < n_total_atoms
     """
+    if i > j:
+        i, j = j, i
     return i * n_total_atoms - i * (i + 1) // 2 + j - i - 1
 
 def create_bonds_apart_mask_for_ij_pairs(
@@ -411,6 +414,8 @@ def create_LJ_params_raw(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
+        min(residue_numbers),
+        max(residue_numbers),
         force_field,
         'sigma',
         )
@@ -419,6 +424,8 @@ def create_LJ_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
+        min(residue_numbers),
+        max(residue_numbers),
         force_field,
         'sigma',
         )
@@ -427,6 +434,8 @@ def create_LJ_params_raw(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
+        min(residue_numbers),
+        max(residue_numbers),
         force_field,
         'epsilon',
         )
@@ -435,6 +444,8 @@ def create_LJ_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
+        min(residue_numbers),
+        max(residue_numbers),
         force_field,
         'epsilon',
         )
@@ -476,6 +487,8 @@ def create_Coulomb_params_raw(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
+        min(residue_numbers),
+        max(residue_numbers),
         force_field,
         'charge',
         )
@@ -484,6 +497,8 @@ def create_Coulomb_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
+        min(residue_numbers),
+        max(residue_numbers),
         force_field,
         'charge',
         )

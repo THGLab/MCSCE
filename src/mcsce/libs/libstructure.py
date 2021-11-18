@@ -12,7 +12,6 @@ developed by Joao M. C. Teixeira (@joaomcteixeira), and added to the
 MSCCE repository in commit 30e417937968f3c6ef09d8c06a22d54792297161.
 Modifications herein are of MCSCE authors.
 """
-from os import ctermid
 import traceback
 import warnings
 from collections import defaultdict
