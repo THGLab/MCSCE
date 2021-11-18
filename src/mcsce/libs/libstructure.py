@@ -407,6 +407,36 @@ class Structure:
 
         return minimal_backbone
 
+    def check_backbone_atom_completeness(self):
+        '''
+        Run check of backbone atom completeness and return a list containing all missing atoms from expected backbone atom list
+        '''
+        all_residue_atoms = {}
+        for atom_label, res_num, res_label in zip(self.atom_labels, self.res_nums, self.res_labels):
+            if res_num not in all_residue_atoms:
+                all_residue_atoms[res_num] = {"label": res_label, "atoms": [atom_label]}
+            else:
+                all_residue_atoms[res_num]["atoms"].append(atom_label)
+        n_term_idx = min(all_residue_atoms)
+        c_term_idx = max(all_residue_atoms)
+        missing_atoms = []
+        for idx in all_residue_atoms:
+            if idx == n_term_idx:
+                expected_atoms = ["N", "CA", "C", "O", "H1", "H2"]
+                if all_residue_atoms[idx]["label"] != "PRO":
+                    expected_atoms.append("H3")
+            else:
+                expected_atoms = ["N", "CA", "C", "O"]
+                if all_residue_atoms[idx]["label"] != "PRO":
+                    expected_atoms.append("H")
+                if idx == c_term_idx:
+                    expected_atoms.append("OXT")
+            residue_missing_atom = [item for item in expected_atoms \
+                if item not in all_residue_atoms[idx]["atoms"]]
+            missing_atoms.extend([(idx, item) for item in residue_missing_atom])
+        return missing_atoms
+        
+
     def remove_side_chains(self):
         """
         Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm

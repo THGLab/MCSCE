@@ -60,23 +60,33 @@ class DunbrakRotamerLibrary:
                     chi4_sigma = float(chi4_sigma)
                     chi_arr = np.array([[chi1, chi2, chi3, chi4]])
                     current_probability = [prob]
+                    append_current_prob = True
                     if augment_with_std:
                         if restype in ["CYS", "SER", "VAL"]:
                             # these residues only have chi1
-                            chi_arr = np.array([[new_chi1, chi2, chi3, chi4] 
-                            for new_chi1 in [chi1 - chi1_sigma, chi1, chi1 + chi1_sigma]])
-                            current_probability = [prob / 3] * 3
+                            new_prob = prob / 3
+                            if new_prob > probability_threshold:
+                                chi_arr = np.array([[new_chi1, chi2, chi3, chi4] 
+                                for new_chi1 in [chi1 - chi1_sigma, chi1, chi1 + chi1_sigma]])
+                                current_probability = [new_prob] * 3
+                            else:
+                                append_current_prob = False
                         else:
-                            chi_arr = np.array([[new_chi1, new_chi2, chi3, chi4]
-                                    for new_chi1 in [chi1 - chi1_sigma, chi1, chi1 + chi1_sigma]
-                                    for new_chi2 in [chi2 - chi2_sigma, chi2, chi2 + chi2_sigma]])
-                            current_probability = [prob / 9] * 9
-                    label = (restype, phi, psi)
-                    if label in self._data:
-                        self._data[label][0].append(chi_arr)
-                        self._data[label][1].append(current_probability)
-                    else:
-                        self._data[label] = [[chi_arr], [current_probability]]
+                            new_prob = prob / 9
+                            if new_prob > probability_threshold:
+                                chi_arr = np.array([[new_chi1, new_chi2, chi3, chi4]
+                                        for new_chi1 in [chi1 - chi1_sigma, chi1, chi1 + chi1_sigma]
+                                        for new_chi2 in [chi2 - chi2_sigma, chi2, chi2 + chi2_sigma]])
+                                current_probability = [new_prob] * 9
+                            else:
+                                append_current_prob = False
+                    if append_current_prob:
+                        label = (restype, phi, psi)
+                        if label in self._data:
+                            self._data[label][0].append(chi_arr)
+                            self._data[label][1].append(current_probability)
+                        else:
+                            self._data[label] = [[chi_arr], [current_probability]]
         for item in self._data:
             chis = np.concatenate(self._data[item][0])
             if item[0] in ["CYS", "SER", "THR", "VAL"]: # residues with only chi1
@@ -93,13 +103,12 @@ class DunbrakRotamerLibrary:
     def retrieve_torsion_and_prob(self, residue_type, phi, psi):
         if residue_type in ["HID", "HIE", "HIP"]:
             residue_type = "HIS"
-        # TODO: select phi/psi according to the Ramanchandran plot
         if np.isnan(phi):
-            # This is the first residue, which do not have phi, so select a random phi
-            phi = np.random.uniform(-180, 180)
+            # This is the first residue, which do not have phi, so use phi=-180 as default
+            phi = -180
         if np.isnan(psi):
-            # this is the last residue, which do not have psi, so select a random psi
-            psi = np.random.uniform(-180, 180)
+            # this is the last residue, which do not have psi, so use psi=-180 as default
+            psi = -180
         # otherwise, return the library contents corresponding to closest phi and psi
         return self._data[(residue_type, get_closest_angle(phi), get_closest_angle(psi))]
 

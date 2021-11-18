@@ -81,6 +81,8 @@ def prepare_angles_and_dihedrals(angle_head_atom_matrix, dihedral_head_atom_matr
                     atom_labels,
                     residue_numbers,
                     residue_labels,
+                    min(residue_numbers),
+                    max(residue_numbers),
                     forcefield,
                     'atom_type',
                     )

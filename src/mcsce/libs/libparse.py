@@ -15,6 +15,7 @@ from itertools import product
 from functools import partial
 from pathlib import Path as Path_
 
+import numpy as np
 from numba import njit
 
 from mcsce import Path
@@ -385,6 +386,8 @@ def extract_ff_params_for_seq(
         atom_labels,
         residue_numbers,
         residue_labels,
+        n_terminal_idx,
+        c_terminal_idx,
         force_field,
         param,
         ):
@@ -413,19 +416,16 @@ def extract_ff_params_for_seq(
     params_append = params_l.append
 
     zipit = zip(atom_labels, residue_numbers, residue_labels)
-    was_in_N_terminal = was_in_C_terminal = False
     for atom_name, res_num, res_label in zipit:
 
         # adds N and C to the terminal residues
 
-        if res_num == min(residue_numbers):
+        if res_num == n_terminal_idx:
             res = 'N' + res_label
-            was_in_N_terminal = True
             assert res.isupper() and len(res) == 4, res
 
-        elif res_num == max(residue_numbers):
+        elif res_num == c_terminal_idx:
             res = 'C' + res_label
-            was_in_C_terminal = True
             assert res.isupper() and len(res) == 4, res
         else:
             res = res_label
@@ -455,13 +455,9 @@ def extract_ff_params_for_seq(
         elif param == "atom_type":
             params_append(atype)
 
-    # assert was_in_C_terminal, \
-    #     'The C terminal residue was never computed. It should have.'
-    # assert was_in_N_terminal, \
-    #     'The N terminal residue was never computed. It should have.'
 
     assert isinstance(params_l, list)
-    return params_l
+    return np.array(params_l)
 
 
 get_trimer_seq_njit = njit(get_trimer_seq)

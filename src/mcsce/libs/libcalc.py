@@ -44,7 +44,40 @@ def calc_all_vs_all_dists(coords):
 
     return results
 
-@jit(nopython=True, nogil=True)
+@jit(nb.float64[:,:](nb.float32[:,:,:], nb.float32[:,:,:]), nopython=True, nogil=True)
+def calc_new_vs_old_dists(coords_new, coords_old):
+    """
+    First calculate the upper half all-vs-all distances for coords_new, 
+    and then calculate all-new vs all-old distances
+    """
+    batch_size = coords_new.shape[0]
+    len_new = coords_new.shape[1]
+    len_old = coords_old.shape[1]
+    shape = (batch_size, (len_new * len_new - len_new) // 2 + len_new * len_old,)
+    results = np.empty(shape, dtype=np.float64)
+    for bi in range(batch_size):
+        c = 1
+        i = 0
+        # new coord block
+        for a in coords_new[bi]:
+            for b in coords_new[bi,c:]:
+                x = b[0] - a[0]
+                y = b[1] - a[1]
+                z = b[2] - a[2]
+                results[bi, i] = (x * x + y * y + z * z) ** 0.5
+                i += 1
+            c += 1
+        # new-old coord block
+        for a in coords_new[bi]:
+            for b in coords_old[bi]:
+                x = b[0] - a[0]
+                y = b[1] - a[1]
+                z = b[2] - a[2]
+                results[bi, i] = (x * x + y * y + z * z) ** 0.5
+                i += 1
+    return results
+
+@jit(nb.void(nb.float64[:],nb.float64[:]), nopython=True, nogil=True)
 def sum_upper_diagonal_raw(data, result):
     """
     Calculate outer sum for upper diagonal with for loops.
@@ -79,6 +112,16 @@ def sum_upper_diagonal_raw(data, result):
     # assert abs(result[-1] - (data[-2] + data[-1])) < 0.0000001
     return
 
+@jit(nb.void(nb.float64[:],nb.float64[:],nb.float64[:]), nopython=True, nogil=True)
+def sum_partial_upper_diagonal(data_new, data_old, result):
+    sum_upper_diagonal_raw(data_new, result)
+    c = len(data_new) * (len(data_new) - 1) // 2
+    for i in range(len(data_new)):
+        for j in range(len(data_old)):
+            result[c] = data_new[i] + data_old[j]
+            c += 1
+    return
+
 @jit(nb.void(nb.float64[:],nb.float64[:]), nopython=True, nogil=True)
 def multiply_upper_diagonal_raw(data, result):
     """
@@ -109,6 +152,16 @@ def multiply_upper_diagonal_raw(data, result):
             result[c] = data[i] * data[j]
             c += 1
 
+
+@jit(nb.void(nb.float64[:],nb.float64[:],nb.float64[:]), nopython=True, nogil=True)
+def multiply_partial_upper_diagonal(data_new, data_old, result):
+    multiply_upper_diagonal_raw(data_new, result)
+    c = len(data_new) * (len(data_new) - 1) // 2
+    for i in range(len(data_new)):
+        for j in range(len(data_old)):
+            result[c] = data_new[i] * data_old[j]
+            c += 1
+    return
 
 @jit(nopython=True, nogil=True)
 def calc_angle_coords(
