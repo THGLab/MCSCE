@@ -187,7 +187,7 @@ def create_side_chain_structure(inputs):
         structure.write_PDB(save_addr)
     return structure, True, accumulated_energy, save_addr
 
-def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_worker=16, return_first_valid=False):
+def create_side_chain(structure, n_trials, temperature, parallel_worker=16, return_first_valid=False):
     """
     Using the MCSCE workflow to add sidechains to a backbone-only PDB structure. The building process will be repeated for n_trial times, but only the lowest energy conformation will be returned 
 
@@ -218,27 +218,22 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
     lowest_energy_conformation: Structure object
         The generated lowest-energy conformation structure with sidechains, or None when every trial of the conformation generation failed
     """
-    # declare global variabales
-    global copied_backbone_structure
-    global sidechain_placeholders
-    global energy_calculators
-    
     # convert temperature to beta
     beta = 1 / (temperature * 0.008314462) # k unit: kJ/mol/K
-    copied_backbone_structure = deepcopy(structure)
-    sidechain_placeholders = []
-    energy_calculators = []
-    for idx, resname in tqdm(enumerate(structure.residue_types), total=len(structure.residue_types)):
-        template = sidechain_templates[resname]
-        structure.add_side_chain(idx + 1, template)
-        sidechain_placeholders.append(deepcopy(structure))
-        if resname not in ["GLY", "ALA"]:
-            energy_func = efunc_creator(structure.atom_labels, 
-                                        structure.res_nums,
-                                        structure.res_labels)
-            energy_calculators.append(energy_func)
-        else:
-            energy_calculators.append(None)
+    # copied_backbone_structure = deepcopy(structure)
+    # sidechain_placeholders = []
+    # energy_calculators = []
+    # for idx, resname in tqdm(enumerate(structure.residue_types), total=len(structure.residue_types)):
+    #     template = sidechain_templates[resname]
+    #     structure.add_side_chain(idx + 1, template)
+    #     sidechain_placeholders.append(deepcopy(structure))
+    #     if resname not in ["GLY", "ALA"]:
+    #         energy_func = efunc_creator(structure.atom_labels, 
+    #                                     structure.res_nums,
+    #                                     structure.res_labels)
+    #         energy_calculators.append(energy_func)
+    #     else:
+    #         energy_calculators.append(None)
     conformations = []
     energies = []
     if return_first_valid:
@@ -252,7 +247,7 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
         # Emsemble building with either sequential execution or parallelization
         if parallel_worker == 1:
             # sequential execution
-            for idx in tqdm(range(n_trials)):
+            for idx in range(n_trials):
                 conf, succeeded, energy, _ = create_side_chain_structure([structure.coords, beta, None])
                 if succeeded:
                     conformations.append(conf)
@@ -261,15 +256,18 @@ def create_side_chain(structure, n_trials, efunc_creator, temperature, parallel_
             import multiprocessing
             pool = multiprocessing.Pool(parallel_worker)
 
-            result_iterator = pool.imap_unordered(
+            with tqdm(total=n_trials) as pbar:
+                for result in pool.imap_unordered(
                 create_side_chain_structure, \
-                [[structure.coords, beta, None]] * n_trials)
-            conformations = []
-            energies = []
-            for conf, succeeded, energy, _ in tqdm(result_iterator, total=n_trials):
-                if succeeded:
-                    conformations.append(conf)
-                    energies.append(energy)
+                [[structure.coords, beta, None]] * n_trials):
+                    conf, succeeded, energy, _ = result
+                    if succeeded:
+                        conformations.append(conf)
+                        energies.append(energy)
+                    pbar.update()
+
+            pool.close()
+            pool.join()
                 
         # define the lowest energy conformation and return
         if len(energies) == 0:
