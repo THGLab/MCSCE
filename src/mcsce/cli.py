@@ -2,11 +2,6 @@ import argparse
 import os
 from datetime import datetime
 
-from numpy import mod
-from tqdm.std import tqdm
-
-from mcsce.libs.libstructure import Structure
-
 
 # Argument parser
 parser = argparse.ArgumentParser()
@@ -40,6 +35,7 @@ def read_structure_and_check(file_name):
     Helper function for reading a structure from a given filename and returns the structure object
     Also checks whether there are missing atoms in the structure
     """
+    from mcsce.libs.libstructure import Structure
     s = Structure(file_name)
     s.build()
     missing_backbone_atoms = s.check_backbone_atom_completeness()
@@ -51,12 +47,10 @@ def read_structure_and_check(file_name):
     return s
 
 
-
-
-
 def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, batch_size=4, same_structure=False):
 
     # antipattern to save time
+    from tqdm.std import tqdm
     from mcsce.core.side_chain_builder import initialize_func_calc, create_side_chain_ensemble, create_side_chain
     from mcsce.core.build_definitions import forcefields
     from mcsce.libs.libenergy import prepare_energy_function
