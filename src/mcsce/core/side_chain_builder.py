@@ -220,20 +220,7 @@ def create_side_chain(structure, n_trials, temperature, parallel_worker=16, retu
     """
     # convert temperature to beta
     beta = 1 / (temperature * 0.008314462) # k unit: kJ/mol/K
-    # copied_backbone_structure = deepcopy(structure)
-    # sidechain_placeholders = []
-    # energy_calculators = []
-    # for idx, resname in tqdm(enumerate(structure.residue_types), total=len(structure.residue_types)):
-    #     template = sidechain_templates[resname]
-    #     structure.add_side_chain(idx + 1, template)
-    #     sidechain_placeholders.append(deepcopy(structure))
-    #     if resname not in ["GLY", "ALA"]:
-    #         energy_func = efunc_creator(structure.atom_labels, 
-    #                                     structure.res_nums,
-    #                                     structure.res_labels)
-    #         energy_calculators.append(energy_func)
-    #     else:
-    #         energy_calculators.append(None)
+
     conformations = []
     energies = []
     if return_first_valid:
@@ -247,7 +234,7 @@ def create_side_chain(structure, n_trials, temperature, parallel_worker=16, retu
         # Emsemble building with either sequential execution or parallelization
         if parallel_worker == 1:
             # sequential execution
-            for idx in range(n_trials):
+            for idx in tqdm(range(n_trials)):
                 conf, succeeded, energy, _ = create_side_chain_structure([structure.coords, beta, None])
                 if succeeded:
                     conformations.append(conf)

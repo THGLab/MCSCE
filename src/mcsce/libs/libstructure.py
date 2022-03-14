@@ -490,11 +490,27 @@ class Structure:
             except UserWarning:
                 raise EmptyFilterError(filename)
 
+    def reorder(self, new_indices):
+        """Reorder atoms acoording to the specified new indices, which is a list of the old indices in the new order"""
+        self._data_array = self.data_array[new_indices]
+        self.data_array[:, col_serial] = (np.arange(len(new_indices)) + 1).astype('<U8')
+
     def reorder_with_resnum(self):
         """Reorder all atoms in the Structure so that it strictly follows the residue number order"""
         sorted_indices = np.argsort(self.res_nums, kind="mergesort")
-        self._data_array = self.data_array[sorted_indices]
-        self.data_array[:, col_serial] = (np.arange(len(sorted_indices)) + 1).astype('<U8')
+        self.reorder(sorted_indices)
+
+    def reorder_by_atom_labels(self, atom_labels):
+        """Reorder all atoms according to the atomic order defined in atom_labels"""
+        reordered_indices = []
+        for ri in range(1, len(self.residues) + 1):
+            residue_indices = np.where(atom_labels.res_nums == ri)[0]
+            assert (self.res_nums[residue_indices] == ri).all()
+            start_idx = residue_indices[0]
+            old_atom_labels = list(self.atom_labels[residue_indices])
+            for new_atom_name in atom_labels.atom_labels[residue_indices]:
+                reordered_indices.append(start_idx + old_atom_labels.index(new_atom_name))
+        self.reorder(reordered_indices)
 
 
 
