@@ -23,6 +23,7 @@ fixed protein backbone.
 Updated supports for phosphorated residues; other ptms in development.
 
 Phosphoralytion
+|:--- |:------- |
 | SER | SEP S1P |
 | THR | TPO T1P |
 | TYR | PTR Y1P |
