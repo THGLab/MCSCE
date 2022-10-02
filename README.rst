@@ -20,7 +20,17 @@ MCSCE - Sidechain packing library
 Monte Carlo Side Chain Entropy package for generating side chain packing for
 fixed protein backbone.
 
-v0.0.0
+Updated supports for phosphorated residues; other ptms in development.
+
+Phosphoralytion
+| SER | SEP S1P |
+| THR | TPO T1P |
+| TYR | PTR Y1P |
+| HID | H1D H2D |
+| HIE | H1E H2E |
+
+
+v0.1.0
 
 References
 ==========

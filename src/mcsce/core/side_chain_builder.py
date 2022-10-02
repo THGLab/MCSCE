@@ -166,7 +166,7 @@ def create_side_chain_structure(inputs):
         energies = energy_func(all_coords[:, -n_sidechain_atoms:], all_coords[:, : -n_sidechain_atoms])
         minimum_energy = min(energies)  # Keep track of the minimum energy so that the renormalized energies can be converted back
          
-        print(idx, resname, len(candidate_probs), np.isinf(energies).sum())
+        #print(idx, resname, len(candidate_probs), np.isinf(energies).sum())
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             return None, False, None, None

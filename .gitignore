@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.DS_Store
 
 # C extensions
 *.so
@@ -115,5 +116,6 @@ SimpleOpt1-5/
 
 # in development files
 src/mcsce/*.pdb
+src/mcsce/test_func.py
 src/mcsce/core/data/glycam_06j.xml
 src/mcsce/core/sidechain_templates/cap_templates/
