@@ -26,7 +26,12 @@ _filepath = Path(__file__).resolve().parent  # folder
 amber_pdbs = sorted(list(
     _filepath.joinpath('sidechain_templates', 'amber_names').glob('*.pdb')))
 _amber14sb = _filepath.joinpath('data', 'protein.ff14SB.xml')
+_amberphosaa = _filepath.joinpath('data', 'phosaa14SB.xml')
+#_glycam06 = _filepath.joinpath('data', 'glycam_06j.xml')
 
+ptm_pdbs = sorted(list(
+    _filepath.joinpath('sidechain_templates', 'ptm_templates').glob('*.pdb')))
+sidechain_pdbs = amber_pdbs + ptm_pdbs
 
 # amino-acids atom labels
 # from: http://www.bmrb.wisc.edu/ref_info/atom_nom.tbl
@@ -42,23 +47,27 @@ def _read_labels(pdbs):
         s.build()
         a_labels = tuple(s.data_array[:, col_name])
         pdb_name = pdb.stem.upper()
-        pdb_1letter = aa3to1[pdb_name]
-
-        # labels are duplicated for 1-letter and 3-letter codes to avoid
-        # double dictionary lookup in other implementations
+        try:   
+            pdb_1letter = aa3to1[pdb_name]
+            labels_d[pdb_1letter] = a_labels
+            # labels are duplicated for 1-letter and 3-letter codes to avoid
+            # double dictionary lookup in other implementations
+        except KeyError:
+            # ptm codes
+            pass
         labels_d[pdb_name] = a_labels
-        labels_d[pdb_1letter] = a_labels
     return labels_d
 
 
 # support figure, for the different histidine protonation states.
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3639364/figure/Fig1/
 atom_names_amber = _read_labels(amber_pdbs)
+sc_atom_names = _read_labels(sidechain_pdbs)
 
 def read_ff14SB_params():
     """
-    Read Amber protein.ff14SB.xml parameters to a dictionary.
-
+    Read Amber protein.ff14SB.xml phosaaSB14  parameters to a dictionary.
+    
     `protein.ff14SB.xml` is in `src.idpconfgen.core.data` folder.
 
     Dictionary structure:
@@ -103,61 +112,65 @@ def read_ff14SB_params():
     -------
     dict
     """
-
     with open(_amber14sb, 'r') as fin:
         ff14sb = ET.fromstring(fin.read())
+    with open(_amberphosaa, 'r') as fin:
+        phosaa14sb = ET.fromstring(fin.read())
+    #with open(_glycam06, 'r') as fin:
+    #    glycam = ET.fromstring(fin.read())
 
+    parm_libs = [ff14sb, phosaa14sb]
     ff14SB_params = defaultdict(dict)
+    
+    for lib in parm_libs:
+        for child in lib:
+            if child.tag == 'AtomTypes':
+                for atomtype in child:
+                    key = atomtype.attrib['name']
+                    ff14SB_params[key].update(atomtype.attrib)
+                    ff14SB_params[key].pop('name')
 
-    for child in ff14sb:
-        if child.tag == 'AtomTypes':
-            for atomtype in child:
-                key = atomtype.attrib['name']
-                ff14SB_params[key].update(atomtype.attrib)
-                ff14SB_params[key].pop('name')
+            elif child.tag == 'Residues':
+                for residue in child:
+                    #if lib is glycam and residue not in ['0YB', '0MA', '0fB']: continue
+                    for atom in filter(lambda x: x.tag == 'Atom', residue):
+                        key = residue.attrib['name']
+                        atom_name = atom.attrib['name']
 
-        elif child.tag == 'Residues':
-            for residue in child:
-                for atom in filter(lambda x: x.tag == 'Atom', residue):
-                    key = residue.attrib['name']
-                    atom_name = atom.attrib['name']
+                        atom_par = ff14SB_params[key].setdefault(atom_name, {})
+                        atom_par.update(atom.attrib)
+                        ff14SB_params[key][atom_name].pop('name')
 
-                    atom_par = ff14SB_params[key].setdefault(atom_name, {})
-                    atom_par.update(atom.attrib)
-                    ff14SB_params[key][atom_name].pop('name')
+            elif child.tag == 'NonbondedForce':
+                ff14SB_params.update(child.attrib)
+                for atom in child:
+                    if atom.tag == 'Atom':
+                        key = atom.attrib['type']
+                        ff14SB_params[key].update(atom.attrib)
+                        ff14SB_params[key].pop('type')
 
-        elif child.tag == 'NonbondedForce':
-            ff14SB_params.update(child.attrib)
-            for atom in child:
-                if atom.tag == 'Atom':
-                    key = atom.attrib['type']
-                    ff14SB_params[key].update(atom.attrib)
-                    ff14SB_params[key].pop('type')
+            elif child.tag == 'HarmonicAngleForce':
+                for angle in child:
+                    key = (angle.attrib['type1'], angle.attrib['type2'], angle.attrib['type3'])
+                    value = {k: angle.attrib[k] for k in angle.attrib if 'type' not in k}
+                    assert key not in ff14SB_params
+                    ff14SB_params[key] = value
 
-        elif child.tag == 'HarmonicAngleForce':
-            for angle in child:
-                key = (angle.attrib['type1'], angle.attrib['type2'], angle.attrib['type3'])
-                value = {k: angle.attrib[k] for k in angle.attrib if 'type' not in k}
-
-                assert key not in ff14SB_params
-                ff14SB_params[key] = value
-
-        elif child.tag == 'PeriodicTorsionForce':
-            for torsion in child:
-                key = (torsion.attrib['type1'], torsion.attrib['type2'], torsion.attrib['type3'], torsion.attrib['type4'])
-                value = {k: torsion.attrib[k] for k in torsion.attrib if 'type' not in k}
-                value["tag"] = torsion.tag
-
-                assert key not in ff14SB_params
-                ff14SB_params[key] = value
+            elif child.tag == 'PeriodicTorsionForce':
+                for torsion in child:
+                    key = (torsion.attrib['type1'], torsion.attrib['type2'], torsion.attrib['type3'], torsion.attrib['type4'])
+                    value = {k: torsion.attrib[k] for k in torsion.attrib if 'type' not in k}
+                    value["tag"] = torsion.tag
+                    assert key not in ff14SB_params
+                    ff14SB_params[key] = value
     return ff14SB_params
 
 
 def generate_residue_template_topology(
         pdb_files,
         residue_labels,
-        add_OXT=True,
-        add_Nterminal_H=True,
+        Cterminal = 'OXT',
+        Nterminal = 'HN',
         ):
     """
     Generate topology for the residue templates.
@@ -167,6 +180,9 @@ def generate_residue_template_topology(
     Generated topology represents all vs. all. Meaning, if atom A is
     covalently bond to atom B, B appears in A records and A in B records,
     as well.
+    
+    Nterminal options {'HN', 'ACE', 'PCA'} 
+    Cterminal options {'OXT', 'NME'}
 
     Returns
     -------
@@ -176,6 +192,7 @@ def generate_residue_template_topology(
     # Creates topoloty of amino acids templates, that is, a dictionary of
     # all vs. all covalent bond pairs
     res_covalent_bonds = defaultdict(dict)
+
     for pdb in pdb_files:
 
         pdbname = pdb.stem.upper()
@@ -195,9 +212,9 @@ def generate_residue_template_topology(
             )
 
         all_dists = pdist(coords)
-        # note that 1.6 AA wont capture the S bonds which are 1.8 A away
+        # note that 1.6 AA wont capture the S-O S-C bonds which are 1.8 A away
         # the Cys and Met special cases are treated after the loop
-        cov_bonds = all_dists <= 1.6
+        cov_bonds = all_dists <= 1.65
 
         # all vs. all atom pairs
         atom_pairs = (
@@ -216,37 +233,43 @@ def generate_residue_template_topology(
 
     # special cases: CYS and MET
     res_covalent_bonds['CYS']['CB'].append('SG')
-    res_covalent_bonds['CYS']['SG'] = []
-    res_covalent_bonds['CYS']['SG'].extend(('CB', 'HG'))
-    res_covalent_bonds['CYS']['HG'] = []
-    res_covalent_bonds['CYS']['HG'].append('SG')
+    res_covalent_bonds['CYS']['SG'].append('CB')
 
     res_covalent_bonds['MET']['CG'].append('SD')
-    res_covalent_bonds['MET']['SD'] = []
-    res_covalent_bonds['MET']['SD'].extend(('CG', 'CE'))
+    res_covalent_bonds['MET']['SD'] = ['CG', 'CE']
     res_covalent_bonds['MET']['CE'].append('SD')
+    
+    # ptm special cases: SMC TYS phosphorated
+    res_covalent_bonds['SMC']['CB'].append('SG')
+    res_covalent_bonds['SMC']['SG'] = ['CB', 'CS']
+    res_covalent_bonds['SMC']['CS'].append('SG')
+    
+    res_covalent_bonds['TYS']['OH'].append('S')
+    res_covalent_bonds['TYS']['S'].extend(('HO3', 'O3S'))
+
+    # special terminal case
+    if Nterminal == 'ACE':
+        res_covalent_bonds['ACE']['C'] = ['O', 'CH3']
+        res_covalent_bonds['ACE']['O'] = ['C']
+        res_covalent_bonds['ACE']['CH3'] = ['C', 'HH31', 'HH32', 'HH33']
+        for h in ('HH31', 'HH32', 'HH33'):
+            res_covalent_bonds['ACE'][h] = ["CH3"]  
+    if Cterminal == 'NME':
+        res_covalent_bonds['NME']['N'] = ['CH3']
+        res_covalent_bonds['NME']['CH3'] = ['N', 'HH31', 'HH32', 'HH33']
+        for h in ('HH31', 'HH32', 'HH33'):
+            res_covalent_bonds['NME'][h] = ["CH3"]
 
     # asserts all atoms are considered
     for k1, v1 in res_covalent_bonds.items():
         assert len(v1) == len(residue_labels[k1]), k1
 
         # add OXT connectivity
-        if add_OXT:
+        if Cterminal == 'OXT':
             add_OXT_to_connectivity(v1)
 
-        ## added 'OXT' connectivity
-        #for atom, connects in v1.items():
-        #    if 'O' in connects:
-        #        connects.append('OXT')
-
-        ## this should be only 'C'
-        #v1['OXT'] = copy(v1['O'])
-        # if k1 == 'PRO':  # why should proline be skipped?
-        #     continue
-
-        if add_Nterminal_H:
+        if Nterminal == 'HN':
             add_Nterm_H_connectivity(v1)
-
     return res_covalent_bonds
 
 
@@ -268,6 +291,15 @@ def add_Nterm_H_connectivity(connectivity_dict):
         # connectivity_dict[h] = copy(connectivity_dict['H'])
         connectivity_dict[h] = ["N"]
 
+def add_Nterm_methyl_conn(connectivity_dict):
+    for atom, list_of_connects in connectivity_dict.items():
+        # if 'H' in list_of_connects:
+        if atom == "N":
+            list_of_connects.append('CH3')
+
+    connectivity_dict['CH3'] = ['HH31', 'HH32', 'HH33']
+    for h in ('HH31', 'HH32', 'HH33'):
+        connectivity_dict[h] = ["CH3"]
 
 def add_OXT_to_connectivity(connectivity_dict):
     """Add OXT connectivity to residue."""
@@ -360,7 +392,6 @@ def expand_topology_bonds_apart(cov_bond_dict, bonds_apart):
         res_d = expanded_topology.setdefault(res, {})
 
         for atom in cov_bond_dict[res]:
-
             atoms_X_bonds_apart = res_d.setdefault(atom, [])
 
             cov_bonded = copy(cov_bond_dict[res][atom])
@@ -427,16 +458,17 @@ def topology_3_bonds_apart(covalent_bond_dict):
 
 # interresidue exact 3 bonds connectivity
 bonds_equal_1_inter = {'C': ['N']}
-
+# TODO: check Nterminal caps
 bonds_equal_3_inter = {
     'N': ['N'],
     'CA': ['H', 'CA'],
-    'C': ['HA', 'HA2', 'HA3', 'CB', 'C'],
+    'C': ['HA', 'HA2', 'HA3', 'CB', 'C', 'CH3'],
     'O': ['CA', 'H'],
     'HA': ['N'],
     'HA2': ['N'],
     'HA3': ['N'],
     'CB': ['N'],
+    #'CH3': ['HA', 'HA2', 'HA3', 'CB', 'C']
     }
 
 # /
@@ -519,13 +551,13 @@ class Amber14SBForceField:
 
     def __init__(self, *args, **kwargs):
 
-        self.atom_names = atom_names_amber
+        self.atom_names = sc_atom_names
 
         self.forcefield = read_ff14SB_params()
 
         self.res_topology = generate_residue_template_topology(
-            amber_pdbs,
-            atom_names_amber,
+            sidechain_pdbs,
+            sc_atom_names,
             **kwargs)
 
         self.bonds_eq3_intra = topology_3_bonds_apart(self.res_topology)
@@ -558,7 +590,7 @@ inter_residue_connectivities = {
     3: bonds_le_3_inter,
     #4: inter_4_connect,
     }
-
+#TODO: add ptm residues stats
 # bend angles are in radians
 # bend angle for the CA-C-O bond was virtually the same, so will be computed
 # as a single value. Changes in CA-C-Np1 create variations in Np1-C-O according
@@ -752,8 +784,9 @@ def _get_structure_coords(path_):
 
 sidechain_templates = {
     pdb.stem.upper(): _get_structure_coords(pdb)
-    for pdb in amber_pdbs
+    for pdb in sidechain_pdbs
     }
+
 
 # these template coordinates were created using Chimera-X daily given
 # a N-terminal at 0,0,0 and a CA along the X axis.

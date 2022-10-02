@@ -112,3 +112,8 @@ venv.bak/
 
 # Dunbrack library files
 SimpleOpt1-5/
+
+# in development files
+src/mcsce/*.pdb
+src/mcsce/core/data/glycam_06j.xml
+src/mcsce/core/sidechain_templates/cap_templates/

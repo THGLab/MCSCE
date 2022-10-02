@@ -12,7 +12,7 @@ import numpy as np
 import numba as nb
 from numba import jit, njit
 
-from mcsce.core.rotamer_library import DunbrakRotamerLibrary
+from mcsce.core.rotamer_library import DunbrakRotamerLibrary, ptmRotamerLib
 from mcsce.core.definitions import aa3to1
 from mcsce.core.build_definitions import sidechain_templates
 from mcsce.libs.libcalc import calc_torsion_angles, place_sidechain_template
@@ -25,6 +25,7 @@ from mcsce.libs.libstructure import Structure
 
 
 _rotamer_library = DunbrakRotamerLibrary()
+_ptm_rotamer_lib = ptmRotamerLib()
 
 sidechain_placeholders = []
 energy_calculators = []
@@ -58,7 +59,7 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
     # declare global variabales
     global sidechain_placeholders
     global energy_calculators
-
+    
     sidechain_placeholders = []
     energy_calculators = []
     print("Start preparing energy calculators at different sidechain completion levels")
@@ -132,6 +133,7 @@ def create_side_chain_structure(inputs):
     all_psi = np.concatenate([all_backbone_dihedrals[::3], [np.nan]]) * 180 / np.pi
     structure_coords = backbone_coords
     accumulated_energy = energy_calculators[0](structure_coords[None], structure_coords[None, :0])[0] # energies of backbone only
+
     for idx, resname in enumerate(structure.residue_types):
         # copy coordinates from the previous growing step to the current placeholder
         previous_coords = structure_coords
@@ -150,10 +152,9 @@ def create_side_chain_structure(inputs):
             continue
         energy_func = energy_calculators[idx + 1]
         # get all candidate conformations (rotamers) for this side chain
-        candidiate_conformations, candidate_probs = _rotamer_library.retrieve_torsion_and_prob(resname, all_phi[idx], all_psi[idx])
+        candidiate_conformations, candidate_probs = _rotamer_library.retrieve_torsion_and_prob(resname, all_phi[idx], all_psi[idx], _ptm_rotamer_lib)
         # perturb chi angles of the side chains by ~0.5 degrees
         candidiate_conformations += np.random.normal(scale=0.5, size=candidiate_conformations.shape)
-        
         energies = []
         
         all_coords = np.tile(structure_coords[None], (len(candidiate_conformations), 1, 1))
@@ -164,8 +165,8 @@ def create_side_chain_structure(inputs):
             all_coords[tor_idx, -n_sidechain_atoms:] = sc_conformation[sidechain_atom_idx]
         energies = energy_func(all_coords[:, -n_sidechain_atoms:], all_coords[:, : -n_sidechain_atoms])
         minimum_energy = min(energies)  # Keep track of the minimum energy so that the renormalized energies can be converted back
-        
-        # print(idx, resname, len(candidate_probs), (~np.isinf(energies)).sum())
+         
+        print(idx, resname, len(candidate_probs), np.isinf(energies).sum())
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             return None, False, None, None

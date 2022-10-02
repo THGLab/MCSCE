@@ -417,9 +417,8 @@ def extract_ff_params_for_seq(
 
     zipit = zip(atom_labels, residue_numbers, residue_labels)
     for atom_name, res_num, res_label in zipit:
-
+        #print(atom_name, res_num, res_label)
         # adds N and C to the terminal residues
-
         if res_num == n_terminal_idx:
             res = 'N' + res_label
             assert res.isupper() and len(res) == 4, res
@@ -435,18 +434,17 @@ def extract_ff_params_for_seq(
         # define protonation state in parameters
         if res_label.endswith('HIS'):
             res_label = res_label[:-3] + 'HIP'
-
+        #print(res)
         try:
             # force field atom type
             charge = force_field[res][atom_name]['charge']
             atype = force_field[res][atom_name]['type']
-
         # TODO:
         # try/catch is here to avoid problems with His...
         # for this purpose we are only using side-chains
         except KeyError:
             raise KeyError(tuple(force_field[res].keys()))
-
+        
         if param in ["class", "element", "mass", "epsilon", "sigma"]:
             # These are parameters for non-specific atom types
             params_append(float(force_field[atype][param]))

@@ -3440,5 +3440,14 @@
     <Atom epsilon="0.4577296" sigma="0.3399669508423535" type="protein-2C"/>
     <Atom epsilon="0.4577296" sigma="0.3399669508423535" type="protein-3C"/>
     <Atom epsilon="0.4577296" sigma="0.3399669508423535" type="protein-C8"/>
+    <Atom type="protein-CI" sigma="0.3399669508423535" epsilon="0.4577296"/>
+    <Atom type="protein-CK" sigma="0.3399669508423535" epsilon="0.359824"/>
+    <Atom type="protein-CP" sigma="0.3399669508423535" epsilon="0.359824"/>
+    <Atom type="protein-CM" sigma="0.3399669508423535" epsilon="0.359824"/>
+    <Atom type="protein-CS" sigma="0.3399669508423535" epsilon="0.359824"/>
+    <Atom type="protein-CN" sigma="0.3399669508423535" epsilon="0.359824"/>
+    <Atom type="protein-CQ" sigma="0.3399669508423535" epsilon="0.359824"/>
+    <Atom type="protein-OS" sigma="0.3000012343465779" epsilon="0.7112800000000001"/>
+    <Atom type="protein-P" sigma="0.37417746161894255" epsilon="0.8368000000000001"/>
   </NonbondedForce>
 </ForceField>

@@ -40,7 +40,7 @@ class Structure:
     """
     Hold structural data from PDB/mmCIF files.
 
-    Run the ``.buil()`` method to read the structure.
+    Run the ``.build()`` method to read the structure.
 
     Cases for PDB Files:
     * If there are several MODELS only the first model is considered.
@@ -565,6 +565,9 @@ def parse_fasta_to_array(datastr, **kwargs):
     """
     n_residues = len(datastr)
     residues_aa3 = translate_seq_to_3l(datastr, histidine_protonation='HIP')
+    # TODO: test ptm, comment out
+    #if 'HIP' in residues_aa3: residues_aa3[residues_aa3.index('HIP')] = 'H2D'
+   
     # For each residue we have N, CA, C, O, HN, then there are two added HN on N-terminal and one OXT on C terminal
     # Also prolines do not have HN
     data_array = gen_empty_structure_data_array(5 * n_residues + 3 - datastr.count('P')) 

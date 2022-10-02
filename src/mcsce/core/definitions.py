@@ -29,7 +29,13 @@ bgeo_Cm1NCa = 'Cm1_N_Ca'
 bgeo_NCaC = 'N_Ca_C'
 bgeo_CaCNp1 = 'Ca_C_Np1'
 
-
+#TODO: ptm codes test
+ptm_aa = {'AGM':'ARG', 'MEN':'ASN', 'BHD':'ASP', 'SMC':'CYS', 'MGN':'GLN', 'CGU':'GLU', 
+          'H2E':'HIS', 'H2D':'HIS', 'H1E':'HIS', 'H1D':'HIS',
+          'HYP':'PRO', 'SEP':'SER', 'TPO':'THR', 'S1P':'SER', 'T1P':'THR', 'Y1P':'TYR',
+          'PTR':'TYR', 'TYS':'TYR', 'LYZ':'LYS', 'ALY':'LYS', 'M3L':'LYS', 'KCX':'LYS'
+         }
+ptm_h = {'H1E':'H2E', 'H1D':'H2D', 'S1P':'SEP', 'T1P':'TPO', 'Y1P':'PTR'}
 # Amino-acid 3 to 1 letter code dictionary
 aa3to1 = {
     'ALA': 'A',
@@ -503,6 +509,14 @@ aa_atom_type_mappings = {
             }
     }
 }
+
+# residue sidechain numbers
+# 1: ['VAL', 'SER', 'THR', 'CYS']
+# 2: ['ASP', 'ASN' ,'HIS', 'ILE', 'TRP', 'PRO', 'PHE', 'LEU', 'TYR', 
+#     'SEP', 'TPO', 'TYS', 'HYP', 'BHD', 'PTR', 'SMC', 'H2D', 'H2E']
+# 3: ['GLN', 'GLU', 'MET', 'CGU', 'MEN', 'MGN']
+# 4: ['LYS', 'LYZ', 'M3L']
+# 5: ['ARG', 'ALY', 'AGM', 'KCX']
 
 # Builder Definitions  ###
 # average values of the backbone angles calculated from

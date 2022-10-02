@@ -68,7 +68,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, batch_siz
         f.write("PDB name,Succeeded,Time used\n")
 
     ff = forcefields["Amberff14SB"]
-    ff_obj = ff(add_OXT=True, add_Nterminal_H=True)
+    ff_obj = ff(Cterminal='OXT', Nterminal='HN')
 
     if n_worker is None:
         import multiprocessing

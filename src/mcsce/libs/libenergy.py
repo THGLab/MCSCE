@@ -92,7 +92,7 @@ def prepare_energy_function(
         bonds_equal_3_inter,
         )[order_in_upper_diagonal]
 
-
+    '''
     bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
         residue_data,
         N,
@@ -100,10 +100,10 @@ def prepare_energy_function(
         bonds_equal_1_inter,
         base_bool=False,
         )[order_in_upper_diagonal]
-
+    
 
     bonds_2_mask = (bonds_le_2_mask.astype(int) - bonds_1_mask.astype(int)).astype(bool)
-
+    '''
     # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
 
     # connectivity_matrix = np.zeros((N, N))
@@ -149,7 +149,7 @@ def prepare_energy_function(
     if clash_term:
         vdw_radii_sum = calc_vdw_radii_sum(atom_labels[new_indices], atom_labels[old_indices])
         vdw_radii_sum *= 0.6 # The clash check parameter as defined in the SI of the MCSCE paper
-        vdw_radii_sum[bonds_1_mask] = 0
+        vdw_radii_sum[bonds_le_2_mask] = 0
         vdw_radii_sum = vdw_radii_sum[None]
     else:
         vdw_radii_sum = None
@@ -307,12 +307,12 @@ def create_bonds_apart_mask_for_ij_pairs(
     n_total_atoms: int
         number of total atoms in the structure
     """
-    
+ 
     # Create default bond mask array
     num_ij_pairs = n_total_atoms * (n_total_atoms - 1) // 2
     other_bool = not base_bool
     bonds_mask = np.full(num_ij_pairs, base_bool)
-
+   
     for res_num in residue_data:
         current_residue_data = residue_data[res_num]
         res_label = current_residue_data["label"]
@@ -321,6 +321,7 @@ def create_bonds_apart_mask_for_ij_pairs(
             for j in range(i + 1, len(current_residue_data["atom_order"])):
                 i_atom_name = current_residue_data["atom_order"][i]
                 j_atom_name = current_residue_data["atom_order"][j]
+              
                 if j_atom_name in bonds_intra[res_label][i_atom_name]:
                     # atoms i and j are connected
                     bonds_mask[calc_upper_diagonal_idx_ij(current_residue_data["atoms"][i_atom_name],
