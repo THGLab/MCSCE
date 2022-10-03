@@ -92,7 +92,6 @@ def prepare_energy_function(
         bonds_equal_3_inter,
         )[order_in_upper_diagonal]
 
-    '''
     bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
         residue_data,
         N,
@@ -103,7 +102,7 @@ def prepare_energy_function(
     
 
     bonds_2_mask = (bonds_le_2_mask.astype(int) - bonds_1_mask.astype(int)).astype(bool)
-    '''
+    
     # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
 
     # connectivity_matrix = np.zeros((N, N))
@@ -149,7 +148,7 @@ def prepare_energy_function(
     if clash_term:
         vdw_radii_sum = calc_vdw_radii_sum(atom_labels[new_indices], atom_labels[old_indices])
         vdw_radii_sum *= 0.6 # The clash check parameter as defined in the SI of the MCSCE paper
-        vdw_radii_sum[bonds_le_2_mask] = 0
+        vdw_radii_sum[bonds_1_mask] = 0
         vdw_radii_sum = vdw_radii_sum[None]
     else:
         vdw_radii_sum = None

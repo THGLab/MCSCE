@@ -49,6 +49,16 @@ PTR  240  360      0.44  -112.6     180   25.84      10
 PTR  240  360      0.22   8.698     180   33.41      10
 PTR  240  360      0.34   96.21     180   18.23      10
 
+# H2D
+# Number of chi angles: 3
+# Number of additional chi angles: 1
+# Dependence: chi 2
+#
+#AA  Chi1-range    Prob chi3Val chi3Sig
+H2D    0  120         1     180      10
+H2D  120  240         1     180      10
+H2D  240  360         1     180      10
+
 # ABA
 # Number of chi angles: 1
 # Number of additional chi angles: 1

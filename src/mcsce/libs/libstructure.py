@@ -423,11 +423,11 @@ class Structure:
         for idx in all_residue_atoms:
             if idx == n_term_idx:
                 expected_atoms = ["N", "CA", "C", "O", "H1", "H2"]
-                if all_residue_atoms[idx]["label"] != "PRO":
+                if all_residue_atoms[idx]["label"] not in ["PRO", "HYP"]:
                     expected_atoms.append("H3")
             else:
                 expected_atoms = ["N", "CA", "C", "O"]
-                if all_residue_atoms[idx]["label"] != "PRO":
+                if all_residue_atoms[idx]["label"] not in ["PRO", "HYP"]:
                     expected_atoms.append("H")
                 if idx == c_term_idx:
                     expected_atoms.append("OXT")

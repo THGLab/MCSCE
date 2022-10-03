@@ -35,7 +35,7 @@ ptm_aa = {'AGM':'ARG', 'MEN':'ASN', 'BHD':'ASP', 'SMC':'CYS', 'MGN':'GLN', 'CGU'
           'HYP':'PRO', 'SEP':'SER', 'TPO':'THR', 'S1P':'SER', 'T1P':'THR', 'Y1P':'TYR',
           'PTR':'TYR', 'TYS':'TYR', 'LYZ':'LYS', 'ALY':'LYS', 'M3L':'LYS', 'KCX':'LYS'
          }
-ptm_h = {'H1E':'H2E', 'H1D':'H2D', 'S1P':'SEP', 'T1P':'TPO', 'Y1P':'PTR'}
+ptm_h = {'H1E':'H2D', 'H1D':'H2D', 'H2E':'H2D', 'S1P':'SEP', 'T1P':'TPO', 'Y1P':'PTR'}
 # Amino-acid 3 to 1 letter code dictionary
 aa3to1 = {
     'ALA': 'A',

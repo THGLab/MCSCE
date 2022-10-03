@@ -92,7 +92,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, batch_siz
         s.build()
         s = s.remove_side_chains()
         initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
-         forcefield=ff_obj, terms=["lj", "clash"]),
+         forcefield=ff_obj, terms=["lj", "clash", "coulomb"]),
         structure=s)
     if mode == "simple" and same_structure and n_worker > 1:
         # parallel executing sequential trials on the same structure (different conformations)
@@ -139,7 +139,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, batch_siz
 
             if not same_structure:
                 initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
-                forcefield=ff_obj, terms=["lj", "clash"]), structure=s)
+                forcefield=ff_obj, terms=["lj", "clash", "coulomb"]), structure=s)
 
             if mode == "ensemble":
                 conformations, success_indicator = create_side_chain_ensemble(
