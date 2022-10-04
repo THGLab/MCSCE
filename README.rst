@@ -22,7 +22,7 @@ fixed protein backbone.
 
 Updated supports for phosphorated residues and other listed modifications; other ptms in development.
 
-#### Phosphoralytion(unprotonated, protonated)
+Phosphoralytion(unprotonated, protonated)
 
 - SER: SEP S1P 
 - THR: TPO T1P 
@@ -30,15 +30,15 @@ Updated supports for phosphorated residues and other listed modifications; other
 - HID: H2D H1D 
 - HIE: H2E H1E
 
-#### Methylation
+Methylation
 
 - LYS: M3L
 
-#### N6-carboxylysine
+N6-carboxylysine
 
 - LYS: KCX
 
-#### Hydroxylation
+Hydroxylation
 
 - PRO: HYP
 
