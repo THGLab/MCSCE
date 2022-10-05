@@ -16,15 +16,31 @@ _filepath = Path(__file__).resolve().parent  # folder
 _library_path = _filepath.joinpath('data', 'SimpleOpt1-5', 'ALL.bbdep.rotamers.lib')
 _ptm_library_path = _filepath.joinpath('data', 'ptm_rotamer.lib')
 
+
+def wrap_angles(rot_angle):
+    more_mask = rot_angle > 180.
+    rot_angle[more_mask] -= 360.
+    less_mask = rot_angle < -180.
+    rot_angle[less_mask] += 360.
+    return rot_angle
+
 def get_closest_angle(input_angle, degsep=10):
     """
-    Find closest angle in [-180, +170] with 10 degree separations
+    Find closest angle in [-180, +170] with n degree separations
     """
-    input_angle += 180
-    if input_angle > 175+180:
+    if input_angle > 180 - degsep/2.:
         # the closest would be 180, namely -180
         return -180
-    return round(input_angle / degsep) * degsep - 180
+    return round(input_angle/degsep)*degsep 
+
+def get_floor_angle(input_angle, degsep=120):
+    """
+    Round to angle in [0, 360) at the floor of n degree separations
+    """
+    if input_angle == 360.:
+        return 0
+    return np.floor(input_angle/degsep)*degsep
+
 
 def sample_torsion(data, nchis):
     assert data.shape[1] == nchis*2
@@ -32,12 +48,6 @@ def sample_torsion(data, nchis):
     sigs = data[:, -nchis:]
     return np.random.normal(vals, sigs)
 
-def wrap_angles(rot_angle):
-    more_mask = rot_angle > 180.
-    rot_angle[more_mask] -= 360.
-    less_mask = rot_angle < -180.
-    rot_angle[less_mask] += 360.
-    return rot_angle 
 
 class DunbrakRotamerLibrary:
     """
@@ -140,9 +150,9 @@ class DunbrakRotamerLibrary:
             nchis = ptm_info[1]
  
             if ptm_info[-1] == 0:
-                ptm_data = ptmlib.retrieve_torsion_and_prob(residue_type, 360.)
+                ptm_data = ptmlib.retrieve_torsion_and_prob(residue_type, -360.)
                 ptm_probs = np.array(ptm_data)[:, 0]
-                torsions = wrap_angles(sample_torsion(np.array(ptm_data)[:, 1:], nchis)-180.)
+                torsions = wrap_angles(sample_torsion(np.array(ptm_data)[:, 1:], nchis))
                 assert torsions.shape[1] == ptm_info[0]
                 return [torsions, ptm_probs]
           
@@ -152,7 +162,7 @@ class DunbrakRotamerLibrary:
             for i in range(chis.shape[0]):
                 ptm_data = ptmlib.retrieve_torsion_and_prob(residue_type, dchis[i])
                 ptm_probs = np.array(ptm_data)[:, 0]
-                torsions = wrap_angles(sample_torsion(np.array(ptm_data)[:, 1:], nchis)-180.)
+                torsions = wrap_angles(sample_torsion(np.array(ptm_data)[:, 1:], nchis))
                 for j in range(len(ptm_probs)):
                     p = probs[i]*ptm_probs[j] 
                     if p > self.prob_threshold:
@@ -203,33 +213,35 @@ class ptmRotamerLib():
                     items = line.split()
                     if self._info[restype][-1] > 0:
                         # with dependence
-                        chid = float(items[1]) - 180.
+                        chid = float(items[1]) 
                         label = (restype, chid)
                         if label in self._data:
                             self._data[label].append([float(n) for n in items[3:]])
                         else:
                             self._data[label] = [[float(n) for n in items[3:]]]
                     else:
-                        chid = 360.
+                        chid = -360.
                         label = (restype, chid) 
                         if label in self._data:
                             self._data[label].append([float(n) for n in items[1:]])
                         else:
                             self._data[label] = [[float(n) for n in items[1:]]]
-    
+                    #if restype == 'SEP': print(label, self._data[label])    
+ 
     def get_dependence(self, residue_type):
         return self._info[residue_type]
 
-    def retrieve_torsion_and_prob(self, residue_type, dchi=360.):
+    def retrieve_torsion_and_prob(self, residue_type, dchi=-360.):
         if self._info[residue_type][-1] == 0:
-            return self._data[(residue_type, 360.)]
+            return self._data[(residue_type, -360.)]
         else:
-            rchi = get_closest_angle(dchi, 120.)
-            if rchi == 180: rchi -= 120.
+            # convert to [0, 360) scale
+            if dchi < 0: dchi += 360.
+            rchi = get_floor_angle(dchi, 120.)
             return self._data[(residue_type, rchi)]
 
 
 if __name__ == "__main__":
     library = DunbrakRotamerLibrary()
     ptmlib = ptmRotamerLib()
-    print(library.retrieve_torsion_and_prob("HYP", 73, -54.8, ptmlib))
+    print(library.retrieve_torsion_and_prob("S1P", 73, -54.8, ptmlib))
