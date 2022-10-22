@@ -439,16 +439,16 @@ class Structure:
 
     def remove_side_chains(self, retain_idxs=[]):
         """
-        Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm
+        Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm, except ones defined in resids to be retained.
         """
         copied_structure = deepcopy(self)
         retained_atoms_filter = np.array([atom in backbone_atoms for atom in copied_structure.data_array[:, col_name]])
         extra_pro_H_filter = (copied_structure.data_array[:, col_name] == 'H') & (copied_structure.data_array[:, col_resName] == 'PRO')
-        print(np.sum(retained_atoms_filter))
+        #print(np.sum(retained_atoms_filter))
         if len(retain_idxs) > 0:
             for resid in retain_idxs:
                 retained_atoms_filter = retained_atoms_filter | (copied_structure.data_array[:, col_resSeq] == str(resid))
-                print(resid, np.sum(retained_atoms_filter))
+                #print(resid, np.sum(retained_atoms_filter))
         retained_atoms_filter = retained_atoms_filter & (~extra_pro_H_filter)
         copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
         return copied_structure #, None if np.all(retained_atoms_filter) else retained_atoms_filter

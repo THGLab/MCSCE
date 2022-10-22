@@ -100,7 +100,6 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, fix, batc
         all_pdbs = [input_folder + f for f in os.listdir(input_folder) if f[-3:].upper() == "PDB"]
     
     fix_idxs = []
-    struct_mask = None
     if same_structure:
         # Assume all structures in a folder are the same: the energy creation step can be done only once
         s = Structure(all_pdbs[0])
@@ -116,16 +115,19 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, fix, batc
                 else:
                     fix_id_chunks = fix.split('+')
                 for chunk in fix_id_chunks:
-                    fix_range = [int(n) for n in chunk.split('-')]
-                    if len(fix_range) > 2:
-                        print('--fix argument syntax error. Abort')
-                        return
-                    start, stop = fix_range
-                    fix_idxs += list(range(start, stop+1))
+                    if chunk.find('-') == -1:
+                        fix_idxs += [int(chunk)]
+                    else:
+                        fix_range = [int(n) for n in chunk.split('-')]
+                        if len(fix_range) > 2:
+                            print('--fix argument syntax error. Abort')
+                            return
+                        start, stop = fix_range
+                        fix_idxs += list(range(start, stop+1))
             if any(array(fix_idxs) > len(s.residue_types)):
                 print('--fix residue id out of range')
                 return
-            #print('fixed residues:', fix_idxs)
+            print('fixed residues:', fix_idxs)
         #TODO input structure contains unnecessary sidechains
         #s = s.remove_side_chains(retain_idxs=fix_idxs)
        

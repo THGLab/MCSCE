@@ -142,7 +142,7 @@ class DunbrakRotamerLibrary:
             if residue_type in ['S1P', 'T1P', 'Y1P', 'H1D', 'H1E', 'H2E']:
                 residue_type = ptm_h[residue_type]
             if residue_type not in ptmlib._info:
-                #print("ptm residue rotamers not provided, assumes unmodified residue")
+                print("ptm residue rotamers not provided, assumes rotamers of unmodified residue")
                 return [chis, probs]
 
             # search ptm library
