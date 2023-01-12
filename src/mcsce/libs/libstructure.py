@@ -461,6 +461,9 @@ class Structure:
         sidechain_data_arr = template_structure.data_array.copy()
         sidechain_data_arr[:, cols_coords] = np.round(sc_all_atom_coords, decimals=3).astype('<U8')
         sidechain_data_arr[:, col_resSeq] = str(res_idx)
+        # conform to backbone residue labels
+        sidechain_data_arr[:, col_segid] = str(self.filtered_atoms[0, col_segid])
+        sidechain_data_arr[:, col_chainID] = str(self.filtered_atoms[0, col_chainID])
         self.pop_last_filter()
         self._data_array = np.concatenate([self.data_array, sidechain_data_arr[sc_atoms]])
 

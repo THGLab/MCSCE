@@ -254,7 +254,7 @@ def create_side_chain(structure, n_trials, temperature, retain_resi=[], parallel
             with tqdm(total=n_trials) as pbar:
                 for result in pool.imap_unordered(
                 create_side_chain_structure, \
-                [[structure.coords, beta, None]] * n_trials):
+                [[structure.coords, beta, retain_resi, None]] * n_trials):
                     conf, succeeded, energy, _ = result
                     if succeeded:
                         conformations.append(conf)
