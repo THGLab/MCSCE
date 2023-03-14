@@ -28,6 +28,8 @@ def prepare_energy_function(
         atom_labels,
         residue_numbers,
         residue_labels,
+        N_terminal_indicators,
+        C_terminal_indicators,
         forcefield,
         batch_size=16,
         partial_indices=None,
@@ -163,6 +165,8 @@ def prepare_energy_function(
             new_indices,
             old_indices,
             forcefield.forcefield,
+            N_terminal_indicators,
+            C_terminal_indicators,
             )
             
         # 0.2 as 0.4
@@ -407,6 +411,8 @@ def create_LJ_params_raw(
         new_indices,
         old_indices,
         force_field,
+        n_terminal_indicators,
+        c_terminal_indicators,
         ):
     """Create ACOEFF and BCOEFF parameters.
     Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
@@ -414,8 +420,8 @@ def create_LJ_params_raw(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators,
+        c_terminal_indicators,
         force_field,
         'sigma',
         )
@@ -424,8 +430,8 @@ def create_LJ_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators,
+        c_terminal_indicators,
         force_field,
         'sigma',
         )
@@ -434,8 +440,8 @@ def create_LJ_params_raw(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators,
+        c_terminal_indicators,
         force_field,
         'epsilon',
         )
@@ -444,8 +450,8 @@ def create_LJ_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators,
+        c_terminal_indicators,
         force_field,
         'epsilon',
         )

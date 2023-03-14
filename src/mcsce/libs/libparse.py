@@ -415,16 +415,16 @@ def extract_ff_params_for_seq(
     params_l = []
     params_append = params_l.append
 
-    zipit = zip(atom_labels, residue_numbers, residue_labels)
-    for atom_name, res_num, res_label in zipit:
+    zipit = zip(atom_labels, residue_numbers, residue_labels, n_terminal_idx, c_terminal_idx)
+    for atom_name, res_num, res_label, is_nterm, is_cterm in zipit:
 
         # adds N and C to the terminal residues
 
-        if res_num == n_terminal_idx:
+        if is_nterm:
             res = 'N' + res_label
             assert res.isupper() and len(res) == 4, res
 
-        elif res_num == c_terminal_idx:
+        elif is_cterm:
             res = 'C' + res_label
             assert res.isupper() and len(res) == 4, res
         else:
