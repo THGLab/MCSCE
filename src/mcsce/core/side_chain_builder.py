@@ -85,6 +85,7 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
         if resname not in ["GLY", "ALA"]:
             n_sidechain_atoms = len(template[1])
             all_indices = np.arange(len(structure.atom_labels))
+            n_terms, c_terms = structure.get_terminal_res_atom_arr()
             energy_func = efunc_creator(structure.atom_labels, 
                                         structure.res_nums,
                                         structure.res_labels,
