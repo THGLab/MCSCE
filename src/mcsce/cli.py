@@ -42,12 +42,22 @@ def read_structure_and_check(file_name):
     """
     s = Structure(file_name)
     s.build()
+    his_id = [str(resid) for resid, res_type in zip(s.residues, s.residue_types) if res_type == "HIS"]
+    if len(his_id) > 0:
+        message = f"WARNING! Undefined histidine protonation status found for structure [{file_name}]:\n"
+        message += " ".join(his_id)
+        message += "\nThese residues have been modified to HIP\n"
+        res_labels = s.res_labels
+        res_labels[res_labels == "HIS"] = "HIP"
+        s.res_labels = res_labels
+        print(message)
     missing_backbone_atoms = s.check_backbone_atom_completeness()
     if len(missing_backbone_atoms) > 0:
         message = f"WARNING! These atoms are missing from the current backbone structure [{file_name}]:"
         for resid, atom_name in missing_backbone_atoms:
             message += f"\n{resid} {atom_name}"
         print(message + "\n")
+
     return s
 
 
