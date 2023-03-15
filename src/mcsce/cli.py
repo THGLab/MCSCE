@@ -57,7 +57,7 @@ def read_structure_and_check(file_name):
         for resid, atom_name in missing_backbone_atoms:
             message += f"\n{resid} {atom_name}"
         print(message + "\n")
-
+    s = s.remove_side_chains()
     return s
 
 
@@ -98,9 +98,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, batch_siz
 
     if same_structure:
         # Assume all structures in a folder are the same: the energy creation step can be done only once
-        s = Structure(all_pdbs[0])
-        s.build()
-        s = s.remove_side_chains()
+        s = read_structure_and_check(all_pdbs[0])
         initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
          forcefield=ff_obj, terms=["lj", "clash"]),
         structure=s)

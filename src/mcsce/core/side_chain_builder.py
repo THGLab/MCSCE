@@ -71,6 +71,7 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
         # extract amino acid sequence from structure object
         aa_seq = structure.residue_types
     structure = deepcopy(structure)
+    chain_ids = structure.residue_chains
     sidechain_placeholders.append(deepcopy(structure))
     n_terms, c_terms = structure.get_terminal_res_atom_arr()
     energy_calculators.append(efunc_creator(structure.atom_labels, 
@@ -78,9 +79,9 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
                                             structure.res_labels,
                                             n_terms,
                                             c_terms))
-    for idx, resname in tqdm(enumerate(aa_seq), total=len(aa_seq)):
+    for idx, resname, chain_id in tqdm(zip(range(len(aa_seq)), aa_seq, chain_ids), total=len(aa_seq)):
         template = sidechain_templates[resname]
-        structure.add_side_chain(idx + 1, template)
+        structure.add_side_chain(idx + 1, template, chain_id)
         sidechain_placeholders.append(deepcopy(structure))
         if resname not in ["GLY", "ALA"]:
             n_sidechain_atoms = len(template[1])

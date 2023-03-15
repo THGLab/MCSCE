@@ -223,6 +223,19 @@ class Structure:
         for chain_residues in chains.values():
             restypes.extend(list(chain_residues.values()))
         return restypes
+    
+    @property
+    def residue_chains(self):
+        c, rs, rn = col_chainID, col_resSeq, col_resName
+
+        chains = defaultdict(dict)
+        for row in self.filtered_atoms:
+            chains[row[c]].setdefault(row[rs], row[rn])
+
+        chain_ids = []
+        for chain_id in chains:
+            chain_ids.extend([chain_id] * len(chains[chain_id]))
+        return chain_ids
 
     @property
     def filtered_residues(self):
@@ -479,7 +492,7 @@ class Structure:
         copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
         return copied_structure
 
-    def add_side_chain(self, res_idx, sidechain_template):
+    def add_side_chain(self, res_idx, sidechain_template, chain_id='A'):
         template_structure, sc_atoms = sidechain_template
         self.add_filter_resnum(res_idx)
         N_CA_C_coords = self.get_sorted_minimal_backbone_coords(filtered=True)
@@ -487,6 +500,7 @@ class Structure:
         sidechain_data_arr = template_structure.data_array.copy()
         sidechain_data_arr[:, cols_coords] = np.round(sc_all_atom_coords, decimals=3).astype('<U8')
         sidechain_data_arr[:, col_resSeq] = str(res_idx)
+        sidechain_data_arr[:, col_chainID] = chain_id
         self.pop_last_filter()
         self._data_array = np.concatenate([self.data_array, sidechain_data_arr[sc_atoms]])
 
