@@ -244,4 +244,6 @@ class ptmRotamerLib():
 if __name__ == "__main__":
     library = DunbrakRotamerLibrary()
     ptmlib = ptmRotamerLib()
-    print(library.retrieve_torsion_and_prob("S1P", 73, -54.8, ptmlib))
+    for resn in ["SER", "THR", "TYR"]:
+        library.retrieve_torsion_and_prob(resn, 73, -54.8, ptmlib)   
+    #print(library.retrieve_torsion_and_prob("S1P", 73, -54.8, ptmlib))

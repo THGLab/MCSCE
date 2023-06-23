@@ -221,7 +221,7 @@ def is_pdb(datastr):
     """Detect if `datastr` if a PDB format v3 file."""
     assert isinstance(datastr, str), \
         f'`datastr` is not str: {type(datastr)} instead'
-    return bool(datastr.count('\nATOM ') > 0)
+    return bool(datastr.count('\nATOM ') > 0) or bool(datastr.count('\nHETATM ') > 0)
 
 
 class PDBIDFactory:

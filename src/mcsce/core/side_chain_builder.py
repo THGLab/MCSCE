@@ -74,17 +74,18 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None, retain_idxs
         # extract amino acid sequence from structure object
         aa_seq = structure.residue_types
     structure = deepcopy(structure)
+
     sidechain_placeholders.append(deepcopy(structure))
     energy_calculators.append(efunc_creator(structure.atom_labels, 
                                             structure.res_nums,
                                             structure.res_labels))
     for idx, resname in tqdm(enumerate(aa_seq), total=len(aa_seq)):
-        if idx + 1 not in retain_idxs: 
+        if idx + structure.res_nums[0] not in retain_idxs: 
             template = sidechain_templates[resname]
-            structure.add_side_chain(idx + 1, template)
+            structure.add_side_chain(idx + structure.res_nums[0], template)
         sidechain_placeholders.append(deepcopy(structure))
         
-        if resname not in ["GLY", "ALA"] and idx + 1 not in retain_idxs:
+        if resname not in ["GLY", "ALA"] and idx + structure.res_nums[0] not in retain_idxs:
             n_sidechain_atoms = len(template[1])
             all_indices = np.arange(len(structure.atom_labels))
             energy_func = efunc_creator(structure.atom_labels, 
@@ -138,10 +139,10 @@ def create_side_chain_structure(inputs):
     all_psi = np.concatenate([all_backbone_dihedrals[::3], [np.nan]]) * 180 / np.pi
     structure_coords = backbone_coords
     accumulated_energy = energy_calculators[0](structure_coords[None], structure_coords[None, :0])[0] # energies of backbone only
-
+    
     for idx, resname in enumerate(structure.residue_types):
         # if residue is to retain, skip building sidechain
-        if idx + 1 in retain_idxs: continue
+        if idx + structure.res_nums[0] in retain_idxs: continue
         # copy coordinates from the previous growing step to the current placeholder
         previous_coords = structure_coords
         # structure = deepcopy(sidechain_placeholders[idx])
@@ -173,7 +174,7 @@ def create_side_chain_structure(inputs):
         energies = energy_func(all_coords[:, -n_sidechain_atoms:], all_coords[:, : -n_sidechain_atoms])
         minimum_energy = min(energies)  # Keep track of the minimum energy so that the renormalized energies can be converted back
          
-        #print(idx, resname, len(candidate_probs), np.isinf(energies).sum())
+        #print(idx+structure.res_nums[0], resname, len(candidate_probs), np.isinf(energies).sum())
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             return None, False, None, None

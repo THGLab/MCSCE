@@ -17,7 +17,7 @@ parser.add_argument("-o", "--output_dir", default=None, help="The output positio
 parser.add_argument("-s", "--same_structure", action="store_true", default=False, help="When generating PDB files in a folder, whether each structure in the folder has the same amino acid sequence. When this is set to True, the energy function preparation will be done only once.")
 parser.add_argument("-b", "--batch_size", default=16, type=int, help="The batch size used for calculating energies for conformations. Consider decreasing batch size when encountered OOM in building.")
 parser.add_argument("-m", "--mode", choices=["ensemble", "simple", "exhaustive"], default="ensemble", help="This option controls whether a structural ensemble or just a single structure is created for every input structure. The default behavior is to create a structural ensemble. Simple/exhaustive modes are for creating single structure. In simple mode, n_conf structures are tried sequentially and the first valid structure is returned, and in exhaustive mode, a total number of n_conf structures will be created and the lowest energy conformation is returned.")
-parser.add_argument("-f", "--fix", default=None, help="list of residue ids whose side chains are retained. Specify start to stop with dash, and seperate id ranges with plus. E.g. 2-5+10-13. Only supports same structure mode and input structure should contain original side chains.")
+parser.add_argument("-f", "--fix", default=None, help="list of residue ids whose side chains are retained. Specify start to stop (inclusive) with dash, and seperate id ranges with plus. E.g. 2-5+10-13. Only supports same structure mode and input structure should contain original side chains.")
 parser.add_argument("-l", "--logfile", default="log.csv", help="File name of the log file")
 
 
@@ -124,10 +124,10 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, fix, batc
                             return
                         start, stop = fix_range
                         fix_idxs += list(range(start, stop+1))
-            if any(array(fix_idxs) > len(s.residue_types)):
+            if any(array(fix_idxs) > s.res_nums[-1]):
                 print('--fix residue id out of range')
                 return
-            print('fixed residues:', fix_idxs)
+            #print('fixed residues:', fix_idxs)
         #TODO input structure contains unnecessary sidechains
         #s = s.remove_side_chains(retain_idxs=fix_idxs)
        
