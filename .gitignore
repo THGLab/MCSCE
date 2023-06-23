@@ -115,6 +115,7 @@ venv.bak/
 SimpleOpt1-5/
 
 # in development files
+src/mcsce/core/check_library.py
 src/mcsce/*.pdb
 src/mcsce/*_mcsce/
 src/mcsce/*.csv
