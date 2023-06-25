@@ -36,7 +36,7 @@ def maincli():
     """Independent client entry point."""
     cli(parser, main)
 
-def read_structure_and_check(file_name):
+def read_structure_and_check(file_name, retain_idx=[]):
     """
     Helper function for reading a structure from a given filename and returns the structure object
     checks whether there are missing atoms in the structure and 
@@ -49,8 +49,7 @@ def read_structure_and_check(file_name):
         for resid, atom_name in missing_backbone_atoms:
             message += f"\n{resid} {atom_name}"
         print(message + "\n")
-    #if sc_mask is not None:
-    #    s.coords = s.coords[sc_mask]
+    s = s.remove_side_chains(retain_idx)
     return s
 
 
@@ -127,9 +126,8 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, fix, batc
             if any(array(fix_idxs) > s.res_nums[-1]):
                 print('--fix residue id out of range')
                 return
-            #print('fixed residues:', fix_idxs)
-        #TODO input structure contains unnecessary sidechains
-        #s = s.remove_side_chains(retain_idxs=fix_idxs)
+            # remove added sidechains in sections to be processed
+            s = s.remove_side_chains(fix_idxs)
        
         initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
                    forcefield=ff_obj, terms=["lj", "clash", "coulomb"]),
@@ -137,7 +135,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, fix, batc
     if mode == "simple" and same_structure and n_worker > 1:
         # parallel executing sequential trials on the same structure (different conformations)
         t0 = datetime.now()
-        structures = [read_structure_and_check(f) for f in all_pdbs]
+        structures = [read_structure_and_check(f, fix_idxs) for f in all_pdbs]
         side_chain_parallel_creator = partial(create_side_chain, 
                                               n_trials=n_conf,
                                               temperature=300,
