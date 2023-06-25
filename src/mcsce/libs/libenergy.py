@@ -147,7 +147,7 @@ def prepare_energy_function(
 
     if clash_term:
         vdw_radii_sum = calc_vdw_radii_sum(atom_labels[new_indices], atom_labels[old_indices])
-        vdw_radii_sum *= 0.6 # The clash check parameter as defined in the SI of the MCSCE paper
+        vdw_radii_sum *= 0.7 # The clash check parameter as defined in the SI of the MCSCE paper
         vdw_radii_sum[bonds_1_mask] = 0
         vdw_radii_sum = vdw_radii_sum[None]
     else:
