@@ -158,6 +158,29 @@ class Structure:
     def coords(self, coords):
         self.data_array[:, cols_coords] = \
             np.round(coords, decimals=3).astype('<U8')
+        
+
+    def get_terminal_res_atom_arr(self):
+        """Return two boolean arrays, each one equal to the total length of the structure,
+          indicating whether atoms are in N/C terminals."""
+        c, rs, rn = col_chainID, col_resSeq, col_resName
+
+        chains = defaultdict(dict)
+        for row in self.filtered_atoms:
+            chains[row[c]].setdefault(row[rs], row[rn])
+
+        N_term_indicator = np.zeros(len(self.filtered_atoms), dtype=bool)
+        C_term_indicator = np.zeros(len(self.filtered_atoms), dtype=bool)
+        for chain_name, chain_residues in chains.items():
+            N_res_id = list(chain_residues.keys())[0]
+            N_res_chain_indicator = (self.filtered_atoms[:, c] == chain_name) & (self.filtered_atoms[:, rs] == N_res_id)
+            N_term_indicator = N_term_indicator | N_res_chain_indicator
+
+            C_res_id = list(chain_residues.keys())[-1]
+            C_res_chain_indicator = (self.filtered_atoms[:, c] == chain_name) & (self.filtered_atoms[:, rs] == C_res_id)
+            C_term_indicator = C_term_indicator | C_res_chain_indicator
+
+        return N_term_indicator, C_term_indicator
 
 
 
@@ -196,7 +219,23 @@ class Structure:
         chains = defaultdict(dict)
         for row in self.filtered_atoms:
             chains[row[c]].setdefault(row[rs], row[rn])
-        return list(list(chains.values())[0].values())
+        restypes = []
+        for chain_residues in chains.values():
+            restypes.extend(list(chain_residues.values()))
+        return restypes
+    
+    @property
+    def residue_chains(self):
+        c, rs, rn = col_chainID, col_resSeq, col_resName
+
+        chains = defaultdict(dict)
+        for row in self.filtered_atoms:
+            chains[row[c]].setdefault(row[rs], row[rn])
+
+        chain_ids = []
+        for chain_id in chains:
+            chain_ids.extend([chain_id] * len(chains[chain_id]))
+        return chain_ids
 
     @property
     def filtered_residues(self):
@@ -215,15 +254,15 @@ class Structure:
 
     @property
     def atom_labels(self):
-        return self.data_array[:, col_name]
+        return self.filtered_atoms[:, col_name]
 
     @property
     def res_nums(self):
-        return self.data_array[:, col_resSeq].astype(int)
+        return self.filtered_atoms[:, col_resSeq].astype(int)
 
     @property
     def res_labels(self):
-        return self.data_array[:, col_resName]
+        return self.filtered_atoms[:, col_resName]
 
     @residues.setter
     def residues(self, residue_idx):
@@ -234,6 +273,10 @@ class Structure:
         but does not perform this explicit check.
         """
         self.data_array[:, col_resSeq] = str(residue_idx)
+
+    @res_labels.setter
+    def res_labels(self, res_labels):
+        self.data_array[:, col_resName] = res_labels
 
     def pop_last_filter(self):
         """Pop last filter."""
@@ -412,16 +455,17 @@ class Structure:
         Run check of backbone atom completeness and return a list containing all missing atoms from expected backbone atom list
         '''
         all_residue_atoms = {}
-        for atom_label, res_num, res_label in zip(self.atom_labels, self.res_nums, self.res_labels):
+        N_res_indicators, C_res_indicators = self.get_terminal_res_atom_arr()
+        for atom_label, res_num, res_label, is_N_res, is_C_res in \
+            zip(self.atom_labels, self.res_nums, self.res_labels, N_res_indicators, C_res_indicators):
             if res_num not in all_residue_atoms:
-                all_residue_atoms[res_num] = {"label": res_label, "atoms": [atom_label]}
+                all_residue_atoms[res_num] = {"label": res_label, "atoms": [atom_label], "is_N_res": is_N_res, "is_C_res": is_C_res}
             else:
                 all_residue_atoms[res_num]["atoms"].append(atom_label)
-        n_term_idx = min(all_residue_atoms)
-        c_term_idx = max(all_residue_atoms)
+
         missing_atoms = []
         for idx in all_residue_atoms:
-            if idx == n_term_idx:
+            if all_residue_atoms[idx]["is_N_res"]:
                 expected_atoms = ["N", "CA", "C", "O", "H1", "H2"]
                 if all_residue_atoms[idx]["label"] not in ["PRO", "HYP"]:
                     expected_atoms.append("H3")
@@ -429,7 +473,7 @@ class Structure:
                 expected_atoms = ["N", "CA", "C", "O"]
                 if all_residue_atoms[idx]["label"] not in ["PRO", "HYP"]:
                     expected_atoms.append("H")
-                if idx == c_term_idx:
+                if all_residue_atoms[idx]["is_C_res"]:
                     expected_atoms.append("OXT")
             residue_missing_atom = [item for item in expected_atoms \
                 if item not in all_residue_atoms[idx]["atoms"]]
@@ -451,7 +495,7 @@ class Structure:
         copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
         return copied_structure #, None if np.all(retained_atoms_filter) else retained_atoms_filter
 
-    def add_side_chain(self, res_idx, sidechain_template):
+    def add_side_chain(self, res_idx, sidechain_template, chain_id='A'):
         template_structure, sc_atoms = sidechain_template
         self.add_filter_resnum(res_idx)
         N_CA_C_coords = self.get_sorted_minimal_backbone_coords(filtered=True)
@@ -459,11 +503,13 @@ class Structure:
         sidechain_data_arr = template_structure.data_array.copy()
         sidechain_data_arr[:, cols_coords] = np.round(sc_all_atom_coords, decimals=3).astype('<U8')
         sidechain_data_arr[:, col_resSeq] = str(res_idx)
+
         # conform to backbone residue labels but conform to sidechain records
         res_mask = (self.data_array[:, col_resSeq].astype(int) == res_idx)
         self.data_array[res_mask, col_record] = sidechain_data_arr[0, col_record]
         sidechain_data_arr[:, col_segid] = str(self.filtered_atoms[0, col_segid])
-        sidechain_data_arr[:, col_chainID] = str(self.filtered_atoms[0, col_chainID])
+        sidechain_data_arr[:, col_chainID] = chain_id
+
         self.pop_last_filter()
         self._data_array = np.concatenate([self.data_array, sidechain_data_arr[sc_atoms]])
 

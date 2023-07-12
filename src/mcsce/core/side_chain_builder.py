@@ -74,23 +74,31 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None, retain_idxs
         # extract amino acid sequence from structure object
         aa_seq = structure.residue_types
     structure = deepcopy(structure)
+    chain_ids = structure.residue_chains
 
     sidechain_placeholders.append(deepcopy(structure))
+    n_terms, c_terms = structure.get_terminal_res_atom_arr()
     energy_calculators.append(efunc_creator(structure.atom_labels, 
                                             structure.res_nums,
-                                            structure.res_labels))
-    for idx, resname in tqdm(enumerate(aa_seq), total=len(aa_seq)):
+                                            structure.res_labels,
+                                            n_terms,
+                                            c_terms))
+                                            
+    for idx, resname, chain_id in tqdm(zip(range(len(aa_seq)), aa_seq, chain_ids), total=len(aa_seq)):
         if idx + structure.res_nums[0] not in retain_idxs: 
             template = sidechain_templates[resname]
-            structure.add_side_chain(idx + structure.res_nums[0], template)
+            structure.add_side_chain(idx + structure.res_nums[0], template, chain_id)
         sidechain_placeholders.append(deepcopy(structure))
         
         if resname not in ["GLY", "ALA"] and idx + structure.res_nums[0] not in retain_idxs:
             n_sidechain_atoms = len(template[1])
             all_indices = np.arange(len(structure.atom_labels))
+            n_terms, c_terms = structure.get_terminal_res_atom_arr()
             energy_func = efunc_creator(structure.atom_labels, 
                                         structure.res_nums,
                                         structure.res_labels,
+                                        n_terms,
+                                        c_terms,
                                         partial_indices=[all_indices[-n_sidechain_atoms:],
                                                          all_indices[:-n_sidechain_atoms]])
             energy_calculators.append(energy_func)

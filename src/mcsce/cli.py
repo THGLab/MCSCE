@@ -44,6 +44,18 @@ def read_structure_and_check(file_name, retain_idx=[], verbose=False):
     """
     s = Structure(file_name)
     s.build()
+    his_id = [str(resid) for resid, res_type in zip(s.residues, s.residue_types) if res_type == "HIS"]
+    if len(his_id) > 0:
+        message = f"WARNING! Undefined histidine protonation status found for structure [{file_name}]:\n"
+        message += " ".join(his_id)
+        message += "\nThese residues have been modified to HIP\n"
+        res_labels = s.res_labels
+        res_labels[res_labels == "HIS"] = "HIP"
+        s.res_labels = res_labels
+        if verbose:
+            print(message)
+        else:
+            print("HIS residues modified to HIP\n")
     missing_backbone_atoms = s.check_backbone_atom_completeness()
     if len(missing_backbone_atoms) > 0:
         message = f"WARNING! These atoms are missing from the current backbone structure [{file_name}]:"
@@ -133,7 +145,7 @@ def main(input_structure, n_conf, n_worker, output_dir, logfile, mode, fix, batc
                 return
             # remove added sidechains in sections to be processed
             s = s.remove_side_chains(fix_idxs)
-       
+      
         initialize_func_calc(partial(prepare_energy_function, batch_size=batch_size,
                    forcefield=ff_obj, terms=["lj", "clash", "coulomb"]),
                    structure=s, retain_idxs=fix_idxs)

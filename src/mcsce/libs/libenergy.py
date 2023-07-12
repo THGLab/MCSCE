@@ -28,6 +28,8 @@ def prepare_energy_function(
         atom_labels,
         residue_numbers,
         residue_labels,
+        N_terminal_indicators,
+        C_terminal_indicators,
         forcefield,
         batch_size=16,
         partial_indices=None,
@@ -162,6 +164,8 @@ def prepare_energy_function(
             new_indices,
             old_indices,
             forcefield.forcefield,
+            N_terminal_indicators,
+            C_terminal_indicators,
             )
             
         # 0.2 as 0.4
@@ -387,7 +391,7 @@ def create_bonds_apart_mask_for_ij_pairs_old(
         residue_labels_ij_gen,
         residue_numbers_ij_gen,
         atom_labels_ij_gen,
-        bonds_intra,
+        bonds_atom_labelsintra,
         bonds_inter,
         )
 
@@ -407,15 +411,18 @@ def create_LJ_params_raw(
         new_indices,
         old_indices,
         force_field,
+        n_terminal_indicators,
+        c_terminal_indicators,
         ):
     """Create ACOEFF and BCOEFF parameters.
     Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
+
     sigmas_ii_new = extract_ff_params_for_seq(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[new_indices],
+        c_terminal_indicators[new_indices],
         force_field,
         'sigma',
         )
@@ -424,8 +431,8 @@ def create_LJ_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[old_indices],
+        c_terminal_indicators[old_indices],
         force_field,
         'sigma',
         )
@@ -434,8 +441,8 @@ def create_LJ_params_raw(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[new_indices],
+        c_terminal_indicators[new_indices],
         force_field,
         'epsilon',
         )
@@ -444,8 +451,8 @@ def create_LJ_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[old_indices],
+        c_terminal_indicators[old_indices],
         force_field,
         'epsilon',
         )
@@ -463,6 +470,7 @@ def create_LJ_params_raw(
 
     # mixing rules
     epsilons_ij = epsilons_ij_pre ** 0.5
+    
     # mixing + nm to Angstrom converstion
     # / 2 and * 10
     sigmas_ij = sigmas_ij_pre * 5
