@@ -12,7 +12,7 @@ import numpy as np
 import numba as nb
 from numba import jit, njit
 
-from mcsce.core.rotamer_library import DunbrakRotamerLibrary
+from mcsce.core.rotamer_library import DunbrakRotamerLibrary, ptmRotamerLib
 from mcsce.core.definitions import aa3to1
 from mcsce.core.build_definitions import sidechain_templates
 from mcsce.libs.libcalc import calc_torsion_angles, place_sidechain_template
@@ -25,6 +25,7 @@ from mcsce.libs.libstructure import Structure
 
 
 _rotamer_library = DunbrakRotamerLibrary()
+_ptm_rotamer_lib = ptmRotamerLib()
 
 sidechain_placeholders = []
 energy_calculators = []
@@ -38,7 +39,7 @@ def choose_random(array):
             return idx
     return len(array) - 1
 
-def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
+def initialize_func_calc(efunc_creator, aa_seq=None, structure=None, retain_idxs=[]):
     """
     Helper function for initializing the energy function calculators according to the specified
     amino acid sequence or a structure object.
@@ -54,11 +55,13 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
 
     structure: Structure object
         The structure with backbone atoms only
+    retain_idxs: list
+        List of residue ids not to pack sidechains
     """
     # declare global variabales
     global sidechain_placeholders
     global energy_calculators
-
+    
     sidechain_placeholders = []
     energy_calculators = []
     print("Start preparing energy calculators at different sidechain completion levels")
@@ -72,6 +75,7 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
         aa_seq = structure.residue_types
     structure = deepcopy(structure)
     chain_ids = structure.residue_chains
+
     sidechain_placeholders.append(deepcopy(structure))
     n_terms, c_terms = structure.get_terminal_res_atom_arr()
     energy_calculators.append(efunc_creator(structure.atom_labels, 
@@ -79,11 +83,14 @@ def initialize_func_calc(efunc_creator, aa_seq=None, structure=None):
                                             structure.res_labels,
                                             n_terms,
                                             c_terms))
+                                            
     for idx, resname, chain_id in tqdm(zip(range(len(aa_seq)), aa_seq, chain_ids), total=len(aa_seq)):
-        template = sidechain_templates[resname]
-        structure.add_side_chain(idx + 1, template, chain_id)
+        if idx + structure.res_nums[0] not in retain_idxs: 
+            template = sidechain_templates[resname]
+            structure.add_side_chain(idx + structure.res_nums[0], template, chain_id)
         sidechain_placeholders.append(deepcopy(structure))
-        if resname not in ["GLY", "ALA"]:
+        
+        if resname not in ["GLY", "ALA"] and idx + structure.res_nums[0] not in retain_idxs:
             n_sidechain_atoms = len(template[1])
             all_indices = np.arange(len(structure.atom_labels))
             n_terms, c_terms = structure.get_terminal_res_atom_arr()
@@ -129,9 +136,10 @@ def create_side_chain_structure(inputs):
     energy:
         The energy for the generated conformation
     """
-    backbone_coords, beta, save_addr = inputs
+    backbone_coords, beta, retain_idxs, save_addr = inputs
     assert len(sidechain_placeholders) > 0, "Energy functions have not yet initialized!"
     structure = deepcopy(sidechain_placeholders[0])
+    assert structure.coords.shape[0] == backbone_coords.shape[0], "Input structures contain extra sidechain atoms or miss sidechain atoms if fix argument is used"
     structure.coords = backbone_coords
     N_CA_C_coords = structure.get_sorted_minimal_backbone_coords()
     all_backbone_dihedrals = calc_torsion_angles(N_CA_C_coords)
@@ -139,7 +147,10 @@ def create_side_chain_structure(inputs):
     all_psi = np.concatenate([all_backbone_dihedrals[::3], [np.nan]]) * 180 / np.pi
     structure_coords = backbone_coords
     accumulated_energy = energy_calculators[0](structure_coords[None], structure_coords[None, :0])[0] # energies of backbone only
+    
     for idx, resname in enumerate(structure.residue_types):
+        # if residue is to retain, skip building sidechain
+        if idx + structure.res_nums[0] in retain_idxs: continue
         # copy coordinates from the previous growing step to the current placeholder
         previous_coords = structure_coords
         # structure = deepcopy(sidechain_placeholders[idx])
@@ -157,10 +168,9 @@ def create_side_chain_structure(inputs):
             continue
         energy_func = energy_calculators[idx + 1]
         # get all candidate conformations (rotamers) for this side chain
-        candidiate_conformations, candidate_probs = _rotamer_library.retrieve_torsion_and_prob(resname, all_phi[idx], all_psi[idx])
+        candidiate_conformations, candidate_probs = _rotamer_library.retrieve_torsion_and_prob(resname, all_phi[idx], all_psi[idx], _ptm_rotamer_lib)
         # perturb chi angles of the side chains by ~0.5 degrees
         candidiate_conformations += np.random.normal(scale=0.5, size=candidiate_conformations.shape)
-        
         energies = []
         
         all_coords = np.tile(structure_coords[None], (len(candidiate_conformations), 1, 1))
@@ -171,8 +181,8 @@ def create_side_chain_structure(inputs):
             all_coords[tor_idx, -n_sidechain_atoms:] = sc_conformation[sidechain_atom_idx]
         energies = energy_func(all_coords[:, -n_sidechain_atoms:], all_coords[:, : -n_sidechain_atoms])
         minimum_energy = min(energies)  # Keep track of the minimum energy so that the renormalized energies can be converted back
-        
-        # print(idx, resname, len(candidate_probs), (~np.isinf(energies)).sum())
+         
+        #print(idx+structure.res_nums[0], resname, len(candidate_probs), np.isinf(energies).sum())
         # If all energies are inf, end this growth
         if np.isinf(energies).all():
             return None, False, None, None
@@ -194,7 +204,7 @@ def create_side_chain_structure(inputs):
         structure.write_PDB(save_addr)
     return structure, True, accumulated_energy, save_addr
 
-def create_side_chain(structure, n_trials, temperature, parallel_worker=16, return_first_valid=False):
+def create_side_chain(structure, n_trials, temperature, retain_resi=[], parallel_worker=16, return_first_valid=False):
     """
     Using the MCSCE workflow to add sidechains to a backbone-only PDB structure. The building process will be repeated for n_trial times, but only the lowest energy conformation will be returned 
 
@@ -233,7 +243,7 @@ def create_side_chain(structure, n_trials, temperature, parallel_worker=16, retu
     if return_first_valid:
         # Sequential execution with maximal n_trial times, but return the first valid structure
         for _ in range(n_trials):
-            conf, succeeded, energy, _ = create_side_chain_structure([structure.coords, beta, None])
+            conf, succeeded, energy, _ = create_side_chain_structure([structure.coords, beta, retain_resi, None])
             if succeeded:
                 return conf
         return None
@@ -242,7 +252,7 @@ def create_side_chain(structure, n_trials, temperature, parallel_worker=16, retu
         if parallel_worker == 1:
             # sequential execution
             for idx in tqdm(range(n_trials)):
-                conf, succeeded, energy, _ = create_side_chain_structure([structure.coords, beta, None])
+                conf, succeeded, energy, _ = create_side_chain_structure([structure.coords, beta, retain_resi, None])
                 if succeeded:
                     conformations.append(conf)
                     energies.append(energy)
@@ -253,7 +263,7 @@ def create_side_chain(structure, n_trials, temperature, parallel_worker=16, retu
             with tqdm(total=n_trials) as pbar:
                 for result in pool.imap_unordered(
                 create_side_chain_structure, \
-                [[structure.coords, beta, None]] * n_trials):
+                [[structure.coords, beta, retain_resi, None]] * n_trials):
                     conf, succeeded, energy, _ = result
                     if succeeded:
                         conformations.append(conf)
@@ -271,7 +281,7 @@ def create_side_chain(structure, n_trials, temperature, parallel_worker=16, retu
             return conformations[lowest_energy_idx]
 
 
-def create_side_chain_ensemble(structure, n_conformations, temperature, save_path, parallel_worker=16):
+def create_side_chain_ensemble(structure, n_conformations, temperature, save_path, retain_resi=[], parallel_worker=16):
     """
     Create a given number of conformation ensemble for the backbone-only structure of a protein
 
@@ -308,7 +318,7 @@ def create_side_chain_ensemble(structure, n_conformations, temperature, save_pat
 
     if parallel_worker == 1:
         for idx in tqdm(range(n_conformations)):
-            conf, succeeded, energy, save_dir = create_side_chain_structure([structure.coords, beta, save_path + f"/{idx}.pdb"])
+            conf, succeeded, energy, save_dir = create_side_chain_structure([structure.coords, beta, retain_resi, save_path + f"/{idx}.pdb"])
             conformations.append(conf)
             success_indicator.append(succeeded)
             if succeeded:
@@ -325,7 +335,7 @@ def create_side_chain_ensemble(structure, n_conformations, temperature, save_pat
         
         with tqdm(total=n_conformations) as pbar:
             for result in pool.imap_unordered(create_side_chain_structure,\
-                [[structure.coords, beta, save_path + f"/{n}.pdb"] for n in range(n_conformations)]):
+                [[structure.coords, beta, retain_resi, save_path + f"/{n}.pdb"] for n in range(n_conformations)]):
                 conformations.append(result[0])
                 success_indicator.append(result[1])
                 if result[1]:

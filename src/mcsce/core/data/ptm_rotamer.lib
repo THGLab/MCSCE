@@ -1,0 +1,221 @@
+# https://download.igb.uci.edu/rotamer_lib.txt
+# K. Nagata, A. Randall, & P. Baldi. SIDEpro: a novel machine learning approach for the fast and accurate prediction of side-chain conformations. Proteins , vol. 80, 1, (2012)
+
+# SEP
+# Number of chi angles: 3
+# Number of additional chi angles: 2
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi2Val chi3Val chi2Sig chi3Sig
+SEP    0  120   0.09677   101.8     180   14.76      10
+SEP    0  120    0.6452   177.6     180   33.09      10
+SEP    0  120    0.2581   277.6     180   32.18      10
+SEP  120  240    0.2188   101.8     180   14.76      10
+SEP  120  240    0.5625   177.6     180   33.09      10
+SEP  120  240    0.2188   277.6     180   32.18      10
+SEP  240  360    0.4062   101.8     180   14.76      10
+SEP  240  360    0.5625   177.6     180   33.09      10
+SEP  240  360   0.03125   277.6     180   32.18      10
+
+# TPO
+# Number of chi angles: 3
+# Number of additional chi angles: 2
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi2Val chi3Val chi2Sig chi3Sig
+TPO    0  120    0.2308     107     180   15.23      10
+TPO    0  120    0.5385   148.2     180   19.58      10
+TPO    0  120    0.2308   298.1     180   15.35      10
+TPO  120  240       0.5     107     180   15.23      10
+TPO  120  240      0.25   148.2     180   19.58      10
+TPO  120  240      0.25   298.1     180   15.35      10
+TPO  240  360    0.5909     107     180   15.23      10
+TPO  240  360    0.3636   148.2     180   19.58      10
+TPO  240  360   0.04545   298.1     180   15.35      10
+
+# PTR
+# Number of chi angles: 4
+# Number of additional chi angles: 2
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi3Val chi4Val chi3Sig chi4Sig
+PTR    0  120       0.5  -112.6     180   25.84      10
+PTR    0  120     0.375   8.698     180   33.41      10
+PTR    0  120     0.125   96.21     180   18.23      10
+PTR  120  240       0.4  -112.6     180   25.84      10
+PTR  120  240      0.05   8.698     180   33.41      10
+PTR  120  240      0.55   96.21     180   18.23      10
+PTR  240  360      0.44  -112.6     180   25.84      10
+PTR  240  360      0.22   8.698     180   33.41      10
+PTR  240  360      0.34   96.21     180   18.23      10
+
+# H2D
+# Number of chi angles: 3
+# Number of additional chi angles: 1
+# Dependence: chi 2
+#
+#AA  Chi1-range    Prob chi3Val chi3Sig
+H2D    0  120         1     180      10
+H2D  120  240         1     180      10
+H2D  240  360         1     180      10
+
+# ABA
+# Number of chi angles: 1
+# Number of additional chi angles: 1
+# No Dependence
+#
+#AA      Prob chi1Val chi1Sig
+ABA    0.5217 -62.309 23.7762
+ABA    0.2996 174.310 33.0081
+ABA    0.1787 60.8882 32.0212
+
+# CSO
+# Number of chi angles: 2
+# Number of additional chi angles: 1
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi2Val chi2Sig
+CSO    0  120    0.1667   77.52    20.4
+CSO    0  120    0.3333   183.4   32.83
+CSO    0  120       0.5   285.4   22.18
+CSO  120  240    0.6538   77.52    20.4
+CSO  120  240    0.1667   183.4   32.83
+CSO  120  240    0.1795   285.4   22.18
+CSO  240  360    0.3206   77.52    20.4
+CSO  240  360    0.1069   183.4   32.83
+CSO  240  360    0.5725   285.4   22.18
+
+# CSD
+# Number of chi angles: 2
+# Number of additional chi angles: 1
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi2Val chi2Sig
+CSD    0  120     0.381   64.29   27.26
+CSD    0  120    0.4286     179   20.24
+CSD    0  120    0.1905   297.8   15.46
+CSD  120  240      0.25   64.29   27.26
+CSD  120  240      0.15     179   20.24
+CSD  120  240       0.6   297.8   15.46
+CSD  240  360    0.4118   64.29   27.26
+CSD  240  360    0.1569     179   20.24
+CSD  240  360    0.4314   297.8   15.46
+
+# CME
+# Number of chi angles: 5
+# Number of additional chi angles: 4
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi2Val chi3Val chi4Val chi5Val chi2Sig chi3Sig
+chi4Sig chi5Sig
+CME    0  120      0.05   101.4   83.31     180     300   95.19   41.85
+10      10
+CME    0  120       0.2   101.4   83.31     180     300   257.7   41.85
+10      10
+CME    0  120      0.05   101.4   272.6     180     300   95.19   41.85
+10      10
+CME    0  120      0.05   101.4   272.6     180     300   257.7   41.85
+10      10
+CME    0  120      0.35   260.6   83.31     180     300   95.19    51.5
+10      10
+CME    0  120      0.05   260.6   83.31     180     300   257.7    51.5
+10      10
+CME    0  120       0.2   260.6   272.6     180     300   95.19    51.5
+10      10
+CME    0  120      0.05   260.6   272.6     180     300   257.7    51.5
+10      10
+CME  120  240    0.2558   101.4   83.31     180     300   95.19   41.85
+10      10
+CME  120  240    0.3488   101.4   83.31     180     300   257.7   41.85
+10      10
+CME  120  240   0.04651   101.4   272.6     180     300   95.19   41.85
+10      10
+CME  120  240   0.06977   101.4   272.6     180     300   257.7   41.85
+10      10
+CME  120  240   0.02326   260.6   83.31     180     300   95.19    51.5
+10      10
+CME  120  240   0.09302   260.6   83.31     180     300   257.7    51.5
+10      10
+CME  120  240   0.09302   260.6   272.6     180     300   95.19    51.5
+10      10
+CME  120  240   0.06977   260.6   272.6     180     300   257.7    51.5
+10      10
+CME  240  360   0.02326   101.4   83.31     180     300   95.19   41.85
+10      10
+CME  240  360   0.04651   101.4   83.31     180     300   257.7   41.85
+10      10
+CME  240  360   0.09302   101.4   272.6     180     300   95.19   41.85
+10      10
+CME  240  360   0.06977   101.4   272.6     180     300   257.7   41.85
+10      10
+CME  240  360    0.4186   260.6   83.31     180     300   95.19    51.5
+10      10
+CME  240  360   0.02326   260.6   83.31     180     300   257.7    51.5
+10      10
+CME  240  360    0.1395   260.6   272.6     180     300   95.19    51.5
+10      10
+CME  240  360     0.186   260.6   272.6     180     300   257.7    51.5
+10      10
+
+# OCS
+# Number of chi angles: 2
+# Number of additional chi angles: 1
+# Dependence: chi 1
+#
+#AA  Chi1-range    Prob chi2Val chi2Sig
+OCS    0  120         1     180      10
+OCS  120  240         1     180      10
+OCS  240  360         1     180      10
+
+# KCX
+# Number of chi angles: 6
+# Number of additional chi angles: 2
+# Dependence: chi 4
+#
+#AA  Chi4-range    Prob chi5Val chi6Val chi5Sig chi6Sig
+KCX    0  120   0.05882   80.47       0   18.55      10
+KCX    0  120    0.2941     185       0    18.3      10
+KCX    0  120    0.6471   261.4       0   10.69      10
+KCX  120  240    0.1364   80.47       0   18.55      10
+KCX  120  240    0.6364     185       0    18.3      10
+KCX  120  240    0.2273   261.4       0   10.69      10
+KCX  240  360      0.05   80.47       0   18.55      10
+KCX  240  360      0.75     185       0    18.3      10
+KCX  240  360       0.2   261.4       0   10.69      10
+
+# MLY
+# Number of chi angles: 5
+# Number of additional chi angles: 1
+# Dependence: chi 4
+#
+#AA  Chi4-range    Prob chi5Val chi5Sig
+MLY    0  120      0.75   65.93   26.82
+MLY    0  120      0.15   167.1   22.44
+MLY    0  120       0.1     296   26.45
+MLY  120  240    0.4273   65.93   26.82
+MLY  120  240    0.4053   167.1   22.44
+MLY  120  240    0.1674     296   26.45
+MLY  240  360    0.5714   65.93   26.82
+MLY  240  360    0.3333   167.1   22.44
+MLY  240  360   0.09524     296   26.45
+
+# M3L
+# Number of chi angles: 5
+# Number of additional chi angles: 1
+# Dependence: chi 4
+#
+#AA  Chi4-range    Prob chi5Val chi5Sig
+M3L    0  120         1     180      10
+M3L  120  240         1     180      10
+M3L  240  360         1     180      10
+
+# HYP
+# Number of chi angles: 2
+# Number of additional chi angles: 2
+# No Dependence
+#
+#AA      Prob chi1Val chi2Val chi1Sig chi2Sig
+HYP  0.017467  21.374  32.968  9.7573  10.801
+HYP   0.19651  21.374   333.5  9.7573  11.163
+HYP   0.78603  336.38  32.968  7.9058  10.801
+

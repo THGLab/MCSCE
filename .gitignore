@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.DS_Store
 
 # C extensions
 *.so
@@ -112,3 +113,12 @@ venv.bak/
 
 # Dunbrack library files
 SimpleOpt1-5/
+
+# in development files
+src/mcsce/core/check_library.py
+src/mcsce/*.pdb
+src/mcsce/*_mcsce/
+src/mcsce/*.csv
+src/mcsce/test_pdbs/
+src/mcsce/core/data/glycam_06j.xml
+src/mcsce/core/sidechain_templates/cap_templates/

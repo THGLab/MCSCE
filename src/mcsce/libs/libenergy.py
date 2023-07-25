@@ -94,7 +94,6 @@ def prepare_energy_function(
         bonds_equal_3_inter,
         )[order_in_upper_diagonal]
 
-
     bonds_1_mask = create_bonds_apart_mask_for_ij_pairs(
         residue_data,
         N,
@@ -102,10 +101,10 @@ def prepare_energy_function(
         bonds_equal_1_inter,
         base_bool=False,
         )[order_in_upper_diagonal]
-
+    
 
     bonds_2_mask = (bonds_le_2_mask.astype(int) - bonds_1_mask.astype(int)).astype(bool)
-
+    
     # Convert 2-bonds separated mask 1d array into the upper triangle of the 2d connecitivity matrix
 
     # connectivity_matrix = np.zeros((N, N))
@@ -191,6 +190,8 @@ def prepare_energy_function(
             new_indices,
             old_indices,
             forcefield.forcefield,
+            N_terminal_indicators,
+            C_terminal_indicators,
             )
 
     if coulomb_term:
@@ -311,12 +312,12 @@ def create_bonds_apart_mask_for_ij_pairs(
     n_total_atoms: int
         number of total atoms in the structure
     """
-    
+ 
     # Create default bond mask array
     num_ij_pairs = n_total_atoms * (n_total_atoms - 1) // 2
     other_bool = not base_bool
     bonds_mask = np.full(num_ij_pairs, base_bool)
-
+   
     for res_num in residue_data:
         current_residue_data = residue_data[res_num]
         res_label = current_residue_data["label"]
@@ -325,6 +326,7 @@ def create_bonds_apart_mask_for_ij_pairs(
             for j in range(i + 1, len(current_residue_data["atom_order"])):
                 i_atom_name = current_residue_data["atom_order"][i]
                 j_atom_name = current_residue_data["atom_order"][j]
+              
                 if j_atom_name in bonds_intra[res_label][i_atom_name]:
                     # atoms i and j are connected
                     bonds_mask[calc_upper_diagonal_idx_ij(current_residue_data["atoms"][i_atom_name],
@@ -489,14 +491,16 @@ def create_Coulomb_params_raw(
         new_indices,
         old_indices,
         force_field,
+        n_terminal_indicators,
+        c_terminal_indicators,
         ):
     """Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
     charges_i_new = extract_ff_params_for_seq(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[new_indices],
+        c_terminal_indicators[new_indices],
         force_field,
         'charge',
         )
@@ -505,8 +509,8 @@ def create_Coulomb_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[old_indices],
+        c_terminal_indicators[old_indices],
         force_field,
         'charge',
         )

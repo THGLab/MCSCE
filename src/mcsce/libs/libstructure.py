@@ -40,7 +40,7 @@ class Structure:
     """
     Hold structural data from PDB/mmCIF files.
 
-    Run the ``.buil()`` method to read the structure.
+    Run the ``.build()`` method to read the structure.
 
     Cases for PDB Files:
     * If there are several MODELS only the first model is considered.
@@ -467,11 +467,11 @@ class Structure:
         for idx in all_residue_atoms:
             if all_residue_atoms[idx]["is_N_res"]:
                 expected_atoms = ["N", "CA", "C", "O", "H1", "H2"]
-                if all_residue_atoms[idx]["label"] != "PRO":
+                if all_residue_atoms[idx]["label"] not in ["PRO", "HYP"]:
                     expected_atoms.append("H3")
             else:
                 expected_atoms = ["N", "CA", "C", "O"]
-                if all_residue_atoms[idx]["label"] != "PRO":
+                if all_residue_atoms[idx]["label"] not in ["PRO", "HYP"]:
                     expected_atoms.append("H")
                 if all_residue_atoms[idx]["is_C_res"]:
                     expected_atoms.append("OXT")
@@ -481,16 +481,19 @@ class Structure:
         return missing_atoms
         
 
-    def remove_side_chains(self):
+    def remove_side_chains(self, retain_idxs=[]):
         """
-        Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm
+        Create a copy of the current structure that removed all atoms beyond CB to be regrown by the MCSCE algorithm, except ones defined in resids to be retained.
         """
         copied_structure = deepcopy(self)
         retained_atoms_filter = np.array([atom in backbone_atoms for atom in copied_structure.data_array[:, col_name]])
         extra_pro_H_filter = (copied_structure.data_array[:, col_name] == 'H') & (copied_structure.data_array[:, col_resName] == 'PRO')
+        if len(retain_idxs) > 0:
+            for resid in retain_idxs:
+                retained_atoms_filter = retained_atoms_filter | (copied_structure.data_array[:, col_resSeq] == str(resid))
         retained_atoms_filter = retained_atoms_filter & (~extra_pro_H_filter)
         copied_structure._data_array = copied_structure.data_array[retained_atoms_filter]
-        return copied_structure
+        return copied_structure #, None if np.all(retained_atoms_filter) else retained_atoms_filter
 
     def add_side_chain(self, res_idx, sidechain_template, chain_id='A'):
         template_structure, sc_atoms = sidechain_template
@@ -500,7 +503,13 @@ class Structure:
         sidechain_data_arr = template_structure.data_array.copy()
         sidechain_data_arr[:, cols_coords] = np.round(sc_all_atom_coords, decimals=3).astype('<U8')
         sidechain_data_arr[:, col_resSeq] = str(res_idx)
+
+        # conform to backbone residue labels but conform to sidechain records
+        res_mask = (self.data_array[:, col_resSeq].astype(int) == res_idx)
+        self.data_array[res_mask, col_record] = sidechain_data_arr[0, col_record]
+        sidechain_data_arr[:, col_segid] = str(self.filtered_atoms[0, col_segid])
         sidechain_data_arr[:, col_chainID] = chain_id
+
         self.pop_last_filter()
         self._data_array = np.concatenate([self.data_array, sidechain_data_arr[sc_atoms]])
 
@@ -610,6 +619,9 @@ def parse_fasta_to_array(datastr, **kwargs):
     """
     n_residues = len(datastr)
     residues_aa3 = translate_seq_to_3l(datastr, histidine_protonation='HIP')
+    # TODO: test ptm, comment out
+    #if 'HIP' in residues_aa3: residues_aa3[residues_aa3.index('HIP')] = 'H2D'
+   
     # For each residue we have N, CA, C, O, HN, then there are two added HN on N-terminal and one OXT on C terminal
     # Also prolines do not have HN
     data_array = gen_empty_structure_data_array(5 * n_residues + 3 - datastr.count('P')) 
