@@ -149,7 +149,7 @@ def prepare_energy_function(
 
     if clash_term:
         vdw_radii_sum = calc_vdw_radii_sum(atom_labels[new_indices], atom_labels[old_indices])
-        vdw_radii_sum *= 0.65 # The clash check parameter as defined in the SI of the MCSCE paper
+        vdw_radii_sum *= 0.6 # The clash check parameter as defined in the SI of the MCSCE paper
         vdw_radii_sum[bonds_1_mask] = 0
         vdw_radii_sum = vdw_radii_sum[None]
     else:
@@ -190,6 +190,8 @@ def prepare_energy_function(
             new_indices,
             old_indices,
             forcefield.forcefield,
+            N_terminal_indicators,
+            C_terminal_indicators,
             )
 
     if coulomb_term:
@@ -489,14 +491,16 @@ def create_Coulomb_params_raw(
         new_indices,
         old_indices,
         force_field,
+        n_terminal_indicators,
+        c_terminal_indicators,
         ):
     """Borrowed from IDP Conformer Generator package (https://github.com/julie-forman-kay-lab/IDPConformerGenerator) developed by Joao M. C. Teixeira"""
     charges_i_new = extract_ff_params_for_seq(
         atom_labels[new_indices],
         residue_numbers[new_indices],
         residue_labels[new_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[new_indices],
+        c_terminal_indicators[new_indices],
         force_field,
         'charge',
         )
@@ -505,8 +509,8 @@ def create_Coulomb_params_raw(
         atom_labels[old_indices],
         residue_numbers[old_indices],
         residue_labels[old_indices],
-        min(residue_numbers),
-        max(residue_numbers),
+        n_terminal_indicators[old_indices],
+        c_terminal_indicators[old_indices],
         force_field,
         'charge',
         )
